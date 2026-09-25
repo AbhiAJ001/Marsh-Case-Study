@@ -23,30 +23,18 @@ def generate_company_profile(company_name: str) -> dict:
     config = get_config()
     genai.configure(api_key=config["GOOGLE_API_KEY"])
 
-    model = genai.GenerativeModel("gemini-2.0-flash")
+    model = genai.GenerativeModel("gemini-3.8-flash")
 
     prompt = COMPANY_PROFILE_PROMPT.format(company_name=company_name)
 
-    # Use Google Search grounding for real-time data
-    try:
-        from google.generativeai.types import content_types
-        response = model.generate_content(
-            prompt,
-            generation_config=genai.GenerationConfig(
-                temperature=0.3,
-                max_output_tokens=2048,
-            ),
-            tools="google_search_retrieval",
-        )
-    except Exception:
-        # Fallback without search grounding
-        response = model.generate_content(
-            prompt,
-            generation_config=genai.GenerationConfig(
-                temperature=0.3,
-                max_output_tokens=2048,
-            ),
-        )
+    # Generate content
+    response = model.generate_content(
+        prompt,
+        generation_config=genai.GenerationConfig(
+            temperature=0.3,
+            max_output_tokens=2048,
+        ),
+    )
 
     # Parse JSON from response
     text = response.text.strip()

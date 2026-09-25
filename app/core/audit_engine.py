@@ -43,7 +43,7 @@ def audit_pitch_content(pitch: dict, policy_ids: list[str]) -> dict:
     )
 
     # Run audit with Gemini
-    model = genai.GenerativeModel("gemini-2.0-flash")
+    model = genai.GenerativeModel("gemini-3.8-flash")
     response = model.generate_content(
         prompt,
         generation_config=genai.GenerationConfig(
