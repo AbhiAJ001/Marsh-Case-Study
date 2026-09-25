@@ -3,6 +3,7 @@
 
 # Backend server
 flask>=3.0
+groq>=1.7
 
 # LLM — Google Gemini
 google-generativeai>=0.8

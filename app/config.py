@@ -46,6 +46,7 @@ def load_config():
 
     return {
         "GOOGLE_API_KEY": api_key,
+        "GROQ_API_KEY":   os.getenv("GROQ_API_KEY", ""),
         "FLASK_PORT": int(os.getenv("FLASK_PORT", "5000")),
         "FLASK_DEBUG": os.getenv("FLASK_DEBUG", "false").lower() == "true",
         "PROJECT_ROOT": PROJECT_ROOT,
