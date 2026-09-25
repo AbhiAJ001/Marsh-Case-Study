@@ -2,19 +2,22 @@
 Model Router — Automatic LLM fallback chain.
 
 Priority order:
-  1. Google Gemini (gemini-3.8-flash) — primary
-  2. Groq Llama 3.3 70B              — fallback when Gemini quota is exhausted
-  3. Groq Gemma2 9B                  — secondary fallback
+  1. Google Gemini (gemini-3.8-flash)  — primary, large context
+  2. Groq GPT-OSS-120B                 — fallback, capped at 1500 tokens output
+  3. Groq Qwen3.8-27B                  — secondary fallback
+  4. Groq GPT-OSS-20B                  — tertiary fallback (smallest prompt)
+
+Groq free tier cap: 8000 TPM. We cap output at 1500 tokens and truncate
+the prompt to 4000 chars max so (input + output) stays well under the limit.
 
 Usage:
     from app.utils.model_router import generate
 
     result = generate(prompt, temperature=0.3, max_tokens=2048)
-    # Returns: {"text": "...", "model_used": "gemini|groq-llama|groq-gemma"}
+    # Returns: {"text": "...", "model_used": "gemini|groq-..."}
 """
 
 import os
-import time
 import json
 from dotenv import load_dotenv
 from pathlib import Path
@@ -25,12 +28,37 @@ load_dotenv(PROJECT_ROOT / ".env")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
 GROQ_API_KEY   = os.getenv("GROQ_API_KEY", "")
 
+# Groq free tier: 8000 TPM. Cap output at 1500 so prompt + output <= 8000.
+# Prompt itself is truncated to ~5000 chars (~1250 tokens) in _prepare_groq_prompt.
+GROQ_MAX_OUTPUT_TOKENS = 1500
+GROQ_MAX_PROMPT_CHARS  = 5000   # ~1250 tokens; leaves headroom for output
+
+
+# ─── Helpers ────────────────────────────────────────────────────────────────
+
+def _prepare_groq_prompt(prompt: str) -> str:
+    """Truncate prompt to stay within Groq's TPM limit."""
+    if len(prompt) <= GROQ_MAX_PROMPT_CHARS:
+        return prompt
+
+    # Keep the first N chars — the instructions — and note the truncation
+    truncated = prompt[:GROQ_MAX_PROMPT_CHARS]
+    # Find the last newline so we don't cut mid-sentence
+    cut = truncated.rfind("\n")
+    if cut > GROQ_MAX_PROMPT_CHARS // 2:
+        truncated = truncated[:cut]
+
+    truncated += (
+        "\n\n[CONTEXT TRUNCATED — respond with the best JSON you can based on "
+        "the information above. Keep your response concise.]"
+    )
+    return truncated
+
 
 # ─── Gemini call ────────────────────────────────────────────────────────────
 
 def _call_gemini(prompt: str, temperature: float, max_tokens: int) -> str:
     import google.generativeai as genai
-    from google.api_core.exceptions import ResourceExhausted
 
     if not GOOGLE_API_KEY:
         raise RuntimeError("GOOGLE_API_KEY not set")
@@ -50,24 +78,34 @@ def _call_gemini(prompt: str, temperature: float, max_tokens: int) -> str:
 
 # ─── Groq call ──────────────────────────────────────────────────────────────
 
-def _call_groq(prompt: str, temperature: float, max_tokens: int,
-               model: str = "llama-3.3-70b-versatile") -> str:
-    from groq import Groq, RateLimitError
+def _call_groq(prompt: str, temperature: float, model: str) -> str:
+    from groq import Groq
 
     if not GROQ_API_KEY:
         raise RuntimeError("GROQ_API_KEY not set")
 
+    # Truncate prompt and cap output tokens to stay within free-tier TPM limit
+    safe_prompt = _prepare_groq_prompt(prompt)
+
     client = Groq(api_key=GROQ_API_KEY)
     completion = client.chat.completions.create(
         model=model,
-        messages=[{"role": "user", "content": prompt}],
+        messages=[{"role": "user", "content": safe_prompt}],
         temperature=temperature,
-        max_tokens=max_tokens,
+        max_tokens=GROQ_MAX_OUTPUT_TOKENS,
     )
     return completion.choices[0].message.content
 
 
 # ─── Main router ────────────────────────────────────────────────────────────
+
+# Keywords that mean "this provider is temporarily unavailable — try the next"
+_SKIP_KEYWORDS = [
+    "quota", "rate limit", "429", "resource exhausted", "ratelimit",
+    "rate_limit", "too large", "413", "token", "tpm", "request too large",
+    "decommissioned", "does not exist", "model_not_found",
+]
+
 
 def generate(prompt: str, temperature: float = 0.3, max_tokens: int = 2048) -> dict:
     """
@@ -83,10 +121,14 @@ def generate(prompt: str, temperature: float = 0.3, max_tokens: int = 2048) -> d
         RuntimeError if ALL providers fail.
     """
     providers = [
-        ("gemini-3.8-flash",    lambda: _call_gemini(prompt, temperature, max_tokens)),
-        ("groq-gpt-oss-120b",   lambda: _call_groq(prompt, temperature, max_tokens, "openai/gpt-oss-120b")),
-        ("groq-qwen3.8-27b",    lambda: _call_groq(prompt, temperature, max_tokens, "qwen/qwen3.8-27b")),
-        ("groq-gpt-oss-20b",    lambda: _call_groq(prompt, temperature, max_tokens, "openai/gpt-oss-20b")),
+        ("gemini-3.8-flash",
+            lambda: _call_gemini(prompt, temperature, max_tokens)),
+        ("groq-gpt-oss-120b",
+            lambda: _call_groq(prompt, temperature, "openai/gpt-oss-120b")),
+        ("groq-qwen3.8-27b",
+            lambda: _call_groq(prompt, temperature, "qwen/qwen3.8-27b")),
+        ("groq-gpt-oss-20b",
+            lambda: _call_groq(prompt, temperature, "openai/gpt-oss-20b")),
     ]
 
     last_error = None
@@ -94,23 +136,23 @@ def generate(prompt: str, temperature: float = 0.3, max_tokens: int = 2048) -> d
         try:
             print(f"[ModelRouter] Trying {model_name}...")
             text = caller()
+            if not text or not text.strip():
+                raise ValueError("Empty response from model")
             print(f"[ModelRouter] [OK] Success with {model_name}")
             return {"text": text, "model_used": model_name}
         except Exception as e:
-            err_str = str(e)
-            # Rate limit or quota errors → try next provider
-            if any(kw in err_str.lower() for kw in ["quota", "rate limit", "429", "resource exhausted", "ratelimit"]):
-                print(f"[ModelRouter] [X] {model_name} rate-limited -- switching to next provider")
-                last_error = e
-                continue
-            # Any other error → also try next (don't crash on one bad provider)
-            print(f"[ModelRouter] [X] {model_name} error: {err_str[:120]} -- trying next provider")
+            err_str = str(e).lower()
             last_error = e
+            if any(kw in err_str for kw in _SKIP_KEYWORDS):
+                print(f"[ModelRouter] [X] {model_name} unavailable -- switching to next")
+                continue
+            # Unexpected error — still try next but log it
+            print(f"[ModelRouter] [X] {model_name} unexpected error: {str(e)[:100]} -- trying next")
             continue
 
     raise RuntimeError(
         f"All LLM providers failed. Last error: {last_error}. "
-        "Check your API keys and quota status."
+        "Please check your API keys, quota, and try again later."
     )
 
 
