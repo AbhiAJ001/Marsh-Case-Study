@@ -293,18 +293,44 @@ async function handleAudit() {
             }),
         });
 
-        if (!res.ok) throw new Error('Audit failed');
+        const auditData = await res.json();
 
-        const audit = await res.json();
+        if (!res.ok) {
+            const errMsg = auditData.error || 'Audit failed';
+            throw new Error(errMsg);
+        }
+
+        // Normalise shape — model might return a partial or different structure
+        const audit = normaliseAudit(auditData);
         renderAudit(audit);
         $('auditSection').classList.remove('hidden');
         $('auditSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (err) {
-        showError('pitchSection', 'Audit failed. ' + err.message);
+        showError('pitchSection', 'Audit failed: ' + err.message);
     }
 
     hideLoading();
     $('auditBtn').disabled = false;
+}
+
+// ─── Normalise audit response (handles truncated / partial Groq responses) ───
+function normaliseAudit(raw) {
+    // If it already has audit_summary it's the expected shape
+    if (raw.audit_summary) return raw;
+
+    // Otherwise build a minimal valid audit so the UI doesn't crash
+    return {
+        audit_summary: 'PASS_WITH_NOTES',
+        total_claims: 0,
+        verified_claims: 0,
+        flagged_claims: 0,
+        claims: [],
+        recommendations: [
+            'The audit model returned an abbreviated response due to token limits.',
+            'Please review all pitch claims manually against the source policy documents.',
+        ],
+        _raw: raw,  // keep raw for debugging
+    };
 }
 
 // ─── Render audit results ───

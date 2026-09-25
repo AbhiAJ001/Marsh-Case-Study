@@ -47,9 +47,13 @@ def audit_pitch_content(pitch: dict, policy_ids: list[str]) -> dict:
 
     print(f"[AuditEngine] Audited with model: {model_used}")
 
-    # Parse response
+    # Parse response — and validate expected shape
     try:
         audit = parse_json_from_response(text)
+        # Validate it's actually an audit result, not a raw knowledge dump
+        if "audit_summary" not in audit:
+            print("[AuditEngine] Unexpected JSON shape — using fallback audit")
+            audit = _fallback_audit(pitch)
     except (ValueError, json.JSONDecodeError):
         audit = _fallback_audit(pitch)
 
