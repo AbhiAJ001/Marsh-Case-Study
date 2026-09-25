@@ -84,44 +84,58 @@ A web application where a Marsh Client Advisor:
 
 ---
 
-## Tech Stack (Decided)
-- **Frontend**: Streamlit (fast to build, clean enough with custom CSS)
-- **Backend**: Python
-- **LLM**: Google Gemini API (free tier available, strong reasoning)
-- **RAG**: LangChain + FAISS for policy document retrieval
-- **PDF Processing**: PyPDF2 + text chunking
+## Tech Stack (v2 — Revised 2026-09-25)
+- **Frontend**: HTML + CSS + vanilla JS (no framework — handcrafted, full control)
+- **Backend**: Flask (Python) — serves static frontend + REST API
+- **LLM**: Google Gemini API (free tier — key prompted on first run)
+- **Knowledge Layer**: OKF (Open Knowledge Format) from Google's knowledge-catalog repo — policy PDFs decomposed into structured concept files with YAML metadata
+- **RAG Fallback**: LangChain + FAISS for similarity search when OKF graph traversal needs more context
+- **PDF Processing**: PyPDF2 for text extraction
 - **PPT Generation**: python-pptx
-- **Company Research**: Gemini + web search fallback
+- **Company Research**: Gemini + web search (real-time company data)
 
 ---
 
-## File Structure
+## File Structure (v2)
 ```
-NMIMS 2026 Case Study/
-├── Policy Documents/          # 4 source PDFs (provided)
-├── app/
-│   ├── main.py               # Streamlit app entry
-│   ├── config.py             # API keys, constants
-│   ├── styles.css            # Custom CSS (the human touch)
-│   ├── components/
-│   │   ├── header.py         # App header
-│   │   ├── input_form.py     # Company input + policy selector
-│   │   ├── pitch_viewer.py   # Display generated pitch
-│   │   └── audit_panel.py    # Audit results display
+Marsh-Case-Study/
+├── Policy Documents/           # 4 source PDFs (provided)
+├── docs/                       # Case study PDF
+├── knowledge_bundle/           # OKF bundle (generated from PDFs)
+│   ├── index.md                # Root catalog
+│   ├── log.md                  # Bundle change log
+│   ├── policies/               # 4 master policy docs
+│   ├── coverages/              # Coverage concepts
+│   ├── benefits/               # Benefit concepts
+│   ├── exclusions/             # Exclusion concepts
+│   ├── pricing/                # Pricing & discount concepts
+│   └── references/             # Supporting references
+├── frontend/                   # HTML/CSS/JS (served as static)
+│   ├── index.html              # Single page app
+│   ├── css/styles.css          # The human-touch design
+│   └── js/app.js               # Client-side logic
+├── app/                        # Python backend
+│   ├── server.py               # Flask API server
+│   ├── config.py               # Environment, API keys (first-run prompt)
 │   ├── core/
-│   │   ├── company_profile.py    # generateCompanyProfile()
-│   │   ├── pitch_generator.py    # generateMarketingPitch()
-│   │   ├── audit_engine.py       # auditPitchContent()
-│   │   └── pptx_builder.py       # PowerPoint file creation
+│   │   ├── company_profile.py  # generateCompanyProfile()
+│   │   ├── pitch_generator.py  # generateMarketingPitch()
+│   │   ├── audit_engine.py     # auditPitchContent()
+│   │   └── pptx_builder.py     # PowerPoint generation
+│   ├── okf/
+│   │   ├── bundle_builder.py   # PDF → OKF bundle conversion
+│   │   ├── bundle_reader.py    # Read & parse OKF concepts
+│   │   └── okf_retriever.py    # OKF-aware retrieval (primary)
 │   ├── rag/
-│   │   ├── document_loader.py    # PDF ingestion + chunking
-│   │   ├── vector_store.py       # FAISS index management
-│   │   └── retriever.py          # Query → relevant chunks
+│   │   ├── langchain_fallback.py  # LangChain RAG (fallback)
+│   │   └── vector_store.py     # FAISS index
 │   └── utils/
-│       ├── prompts.py            # All LLM prompts (centralized)
-│       └── helpers.py            # Shared utilities
-├── output/                    # Generated pitch decks + audit reports
-├── write_up/                  # Final write-up document
-├── mind.md                    # THIS FILE — project memory
-└── log.md                     # Work log + task tracking
+│       ├── prompts.py          # All LLM prompts
+│       └── helpers.py          # Shared utilities
+├── output/                     # Generated pitch decks + audit reports
+├── write_up/                   # Final submission document
+├── mind.md                     # THIS FILE — project memory
+├── log.md                      # Work log + task tracking
+└── map.md                      # System blueprint
 ```
+

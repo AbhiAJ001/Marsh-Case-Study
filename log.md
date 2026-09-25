@@ -1,6 +1,7 @@
 # LOG — Marsh AI Pitch Generator
 
-> Last Updated: 2026-09-25 13:30 IST
+> Last Updated: 2026-09-25 16:17 IST
+> Architecture: v2 (HTML/CSS/JS + OKF + Flask)
 
 ---
 
@@ -8,14 +9,15 @@
 
 | Phase | Status | Progress |
 |-------|--------|----------|
-| Phase 0 — Setup & Foundation | 🟡 In Progress | ████████░░ 80% |
-| Phase 1 — RAG Pipeline | ⚪ Not Started | ░░░░░░░░░░ 0% |
-| Phase 2 — Core Functions | ⚪ Not Started | ░░░░░░░░░░ 0% |
-| Phase 3 — UI & Styling | ⚪ Not Started | ░░░░░░░░░░ 0% |
-| Phase 4 — Audit Engine | ⚪ Not Started | ░░░░░░░░░░ 0% |
-| Phase 5 — PPT Generation | ⚪ Not Started | ░░░░░░░░░░ 0% |
-| Phase 6 — Integration & Polish | ⚪ Not Started | ░░░░░░░░░░ 0% |
-| Phase 7 — Deliverables | ⚪ Not Started | ░░░░░░░░░░ 0% |
+| Phase 0 — Setup & Foundation | 🟡 In Progress | ████████░░ 85% |
+| Phase 1 — OKF Knowledge Bundle | ⚪ Not Started | ░░░░░░░░░░ 0% |
+| Phase 2 — LangChain Fallback RAG | ⚪ Not Started | ░░░░░░░░░░ 0% |
+| Phase 3 — Core AI Functions | ⚪ Not Started | ░░░░░░░░░░ 0% |
+| Phase 4 — Frontend (HTML/CSS/JS) | ⚪ Not Started | ░░░░░░░░░░ 0% |
+| Phase 5 — Flask API Server | ⚪ Not Started | ░░░░░░░░░░ 0% |
+| Phase 6 — Audit Engine | ⚪ Not Started | ░░░░░░░░░░ 0% |
+| Phase 7 — PPT Generation | ⚪ Not Started | ░░░░░░░░░░ 0% |
+| Phase 8 — Integration & Deliverables | ⚪ Not Started | ░░░░░░░░░░ 0% |
 
 ---
 
@@ -196,11 +198,17 @@
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
-| 2026-09-24 | Streamlit for UI | Fast to build, Python-native, can be heavily customized with CSS |
+| 2026-09-24 | ~~Streamlit for UI~~ | ~~Fast to build~~ → **SUPERSEDED 2026-09-25** |
 | 2026-09-24 | Google Gemini for LLM | Free tier available, strong reasoning, good for RAG |
 | 2026-09-24 | FAISS for vector store | Lightweight, no server needed, fast similarity search |
 | 2026-09-24 | Minimalist/human design | Explicit requirement — app must NOT look AI-generated |
-| 2026-09-24 | Chunk by document structure | Better retrieval than arbitrary character splits |
+| 2026-09-24 | ~~Chunk by document structure~~ | ~~Better than arbitrary splits~~ → **SUPERSEDED by OKF** |
+| 2026-09-25 | **HTML/CSS/JS frontend** | Full design control, no framework, looks human-crafted |
+| 2026-09-25 | **Flask API backend** | Simple, serves static files, sufficient for scope |
+| 2026-09-25 | **OKF knowledge bundles** (primary) | Structured concept files with YAML metadata, cross-links, provenance — far superior to raw chunking |
+| 2026-09-25 | **LangChain as fallback** only | OKF graph retrieval is primary; FAISS fills gaps |
+| 2026-09-25 | **Web search for company research** | Real-time company data, not just LLM training data |
+| 2026-09-25 | **Gemini key on first run** | User doesn't have one yet; config.py prompts and saves |
 
 ---
 
@@ -208,4 +216,5 @@
 
 | # | Issue | Status | Resolution |
 |---|-------|--------|------------|
-| — | None yet | — | — |
+| 1 | Gemini API key not available | Open | config.py will prompt on first run and save to .env |
+
