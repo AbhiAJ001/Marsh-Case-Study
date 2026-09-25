@@ -127,6 +127,15 @@ async function handleGenerate() {
         const pitchData = await pitchRes.json();
         if (!pitchRes.ok) throw new Error(pitchData.error || 'Pitch generation failed');
 
+        // Check if backend returned an error pitch (model failed to parse JSON)
+        if (pitchData.error === true) {
+            throw new Error(
+                'The AI model could not generate a structured pitch. ' +
+                'This usually happens when the API is under heavy load. ' +
+                'Please wait 30 seconds and try again.'
+            );
+        }
+
         currentPitch = pitchData;
         renderPitch(currentPitch);
         $('pitchSection').classList.remove('hidden');
@@ -135,6 +144,7 @@ async function handleGenerate() {
         showError('profileSection', 'Failed to generate pitch: ' + err.message);
         return;
     }
+
 
     hideLoading();
 

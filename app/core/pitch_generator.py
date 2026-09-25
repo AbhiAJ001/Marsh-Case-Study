@@ -44,14 +44,30 @@ def generate_marketing_pitch(company_profile: dict, policy_ids: list[str]) -> di
             if fallback_text:
                 context_text += "\n\n" + fallback_text
 
-    # 3. Build the prompt
+    # 3. Build a compact prompt — cap OKF context and profile to keep total
+    #    prompt well under Groq's 8 000 TPM free-tier limit.
+    MAX_CONTEXT_CHARS  = 2500   # ~625 tokens for policy knowledge
+    MAX_PROFILE_CHARS  = 800    # ~200 tokens for company JSON
+
+    if len(context_text) > MAX_CONTEXT_CHARS:
+        context_text = context_text[:MAX_CONTEXT_CHARS] + "\n[...context truncated for length...]"
+
+    # Strip heavy/internal keys from profile to save tokens
+    compact_profile = {
+        k: v for k, v in company_profile.items()
+        if k not in ("_model_used", "_source_map", "_policy_ids", "_company_profile", "assumptions")
+    }
+    profile_str = json.dumps(compact_profile, indent=2)
+    if len(profile_str) > MAX_PROFILE_CHARS:
+        profile_str = profile_str[:MAX_PROFILE_CHARS] + "\n  ...\n}"
+
     policy_names = ", ".join(
         p["name"] for p in retriever.get_available_policies()
         if p["id"] in policy_ids
     )
 
     prompt = PITCH_GENERATION_PROMPT.format(
-        company_profile=json.dumps(company_profile, indent=2),
+        company_profile=profile_str,
         okf_context=context_text,
         policy_names=policy_names,
     )
