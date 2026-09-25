@@ -1,6 +1,6 @@
 # LOG — Marsh AI Pitch Generator
 
-> Last Updated: 2026-09-24 21:50 IST
+> Last Updated: 2026-09-25 13:30 IST
 
 ---
 
@@ -8,7 +8,7 @@
 
 | Phase | Status | Progress |
 |-------|--------|----------|
-| Phase 0 — Setup & Foundation | 🟡 In Progress | ██░░░░░░░░ 20% |
+| Phase 0 — Setup & Foundation | 🟡 In Progress | ████████░░ 80% |
 | Phase 1 — RAG Pipeline | ⚪ Not Started | ░░░░░░░░░░ 0% |
 | Phase 2 — Core Functions | ⚪ Not Started | ░░░░░░░░░░ 0% |
 | Phase 3 — UI & Styling | ⚪ Not Started | ░░░░░░░░░░ 0% |
@@ -33,14 +33,27 @@
 - **Output**: `mind.md` (project context + anti-AI design rules), `log.md` (this file)
 - **Notes**: Permanent design rules established — minimalist, human-feel, no typical AI aesthetics
 
-### Task 0.3: Project Structure & Dependencies
-- **Status**: ⚪ Not Started
-- **What**: Create folder structure, install all dependencies (streamlit, langchain, faiss-cpu, python-pptx, google-generativeai, PyPDF2)
-- **Output**: `requirements.txt`, folder tree created
+### Task 0.3: Project Structure & Dependencies ✅
+- **Status**: Done
+- **Date**: 2026-09-25
+- **Output**: Folder tree created (`app/components/`, `app/core/`, `app/rag/`, `app/utils/`, `output/`, `write_up/`, `docs/`), `__init__.py` files, `.env.example`, `.gitignore`
+- **Notes**: Case study PDF moved to `docs/` folder for clean organization
 
-### Task 0.4: API Key Configuration
+### Task 0.4: System Documentation & Architecture ✅
+- **Status**: Done
+- **Date**: 2026-09-25
+- **Output**: `map.md` (complete system blueprint), `architecture.html` (interactive diagram), `README.md`
+- **Notes**: map.md covers every file, function signature, data model, dependency graph. Architecture HTML styled with same human-touch aesthetic.
+
+### Task 0.5: GitHub Repository ✅
+- **Status**: Done
+- **Date**: 2026-09-25
+- **Output**: https://github.com/AbhiAJ001/Marsh-Case-Study
+- **Notes**: Public repo with professional README showcasing AI usage practices and agentic development workflow
+
+### Task 0.6: API Key Configuration
 - **Status**: ⚪ Not Started
-- **What**: Set up Gemini API key in config, create `.env` or `config.py` with safe key handling
+- **What**: Set up Gemini API key in config, create `app/config.py` with safe key handling
 - **Output**: `app/config.py`, `.env`
 
 ---
