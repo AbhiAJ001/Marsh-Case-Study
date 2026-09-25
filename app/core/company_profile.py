@@ -43,16 +43,20 @@ def generate_company_profile(company_name: str) -> dict:
                 ),
             )
             break
-        except ResourceExhausted as e:
+        except ResourceExhausted:
             if attempt == max_retries - 1:
-                raise e
-            print(f"Rate limit hit in profile gen, waiting 35 seconds... (Attempt {attempt+1}/{max_retries})")
-            time.sleep(35)
+                raise RuntimeError(
+                    "Gemini API rate limit reached. The free tier allows 20 requests/day. "
+                    "Please wait a few minutes and try again."
+                )
+            wait = 35
+            print(f"Rate limit hit in profile gen, waiting {wait}s... (Attempt {attempt+1}/{max_retries})")
+            time.sleep(wait)
 
     # Parse JSON from response
     text = response.text.strip()
-    
-    # Clean up common issues
+
+    # Clean up common markdown code fences
     if text.startswith("```json"):
         text = text[7:]
     if text.startswith("```"):
@@ -64,20 +68,15 @@ def generate_company_profile(company_name: str) -> dict:
     try:
         profile = json.loads(text)
     except json.JSONDecodeError:
-        # Try to find JSON in the response
+        # Try to extract JSON object from surrounding text
         start = text.find("{")
         end = text.rfind("}") + 1
         if start >= 0 and end > start:
             profile = json.loads(text[start:end])
         else:
-            profile = {
-                "company_name": company_name,
-                "industry": "Unknown",
-                "description": "Could not parse company profile. Please try again.",
-                "assumptions": ["ASSUMED: Company data could not be retrieved"],
-                "key_risks": [],
-                "insurance_needs": [],
-                "error": True,
-            }
+            raise ValueError(
+                f"Could not parse a profile for '{company_name}'. "
+                "The model returned a non-JSON response. Please check the company name and try again."
+            )
 
     return profile

@@ -61,6 +61,19 @@ function hideLoading() {
     $('statusText').textContent = 'Ready';
 }
 
+// ─── Reset all results sections before a new search ───
+function resetResults() {
+    currentProfile = null;
+    currentPitch = null;
+    $('profileSection').classList.add('hidden');
+    $('pitchSection').classList.add('hidden');
+    $('auditSection').classList.add('hidden');
+    $('profileContent').innerHTML = '';
+    $('slidesContainer').innerHTML = '';
+    $('auditSummary').innerHTML = '';
+    $('auditClaims').innerHTML = '';
+}
+
 // ─── Main generate flow ───
 async function handleGenerate() {
     const companyName = $('companyName').value.trim();
@@ -76,6 +89,7 @@ async function handleGenerate() {
     }
 
     clearErrors();
+    resetResults();  // wipe previous company data before every new request
 
     // Step 1: Generate company profile
     showLoading('Researching ' + companyName + '...');
@@ -86,13 +100,15 @@ async function handleGenerate() {
             body: JSON.stringify({ company_name: companyName }),
         });
 
-        if (!profileRes.ok) throw new Error('Profile generation failed');
-        currentProfile = await profileRes.json();
+        const profileData = await profileRes.json();
+        if (!profileRes.ok) throw new Error(profileData.error || 'Profile generation failed');
+
+        currentProfile = profileData;
         renderProfile(currentProfile);
         $('profileSection').classList.remove('hidden');
     } catch (err) {
         hideLoading();
-        showError('inputSection', 'Failed to research company. ' + err.message);
+        showError('inputSection', 'Failed to research company: ' + err.message);
         return;
     }
 
@@ -108,13 +124,15 @@ async function handleGenerate() {
             }),
         });
 
-        if (!pitchRes.ok) throw new Error('Pitch generation failed');
-        currentPitch = await pitchRes.json();
+        const pitchData = await pitchRes.json();
+        if (!pitchRes.ok) throw new Error(pitchData.error || 'Pitch generation failed');
+
+        currentPitch = pitchData;
         renderPitch(currentPitch);
         $('pitchSection').classList.remove('hidden');
     } catch (err) {
         hideLoading();
-        showError('profileSection', 'Failed to generate pitch. ' + err.message);
+        showError('profileSection', 'Failed to generate pitch: ' + err.message);
         return;
     }
 
