@@ -58,15 +58,29 @@ def generate_marketing_pitch(company_profile: dict, policy_ids: list[str]) -> di
         policy_names=policy_names,
     )
 
-    # 4. Generate with Gemini
+    # 4. Generate with Gemini (with retry for rate limits)
+    import time
+    from google.api_core.exceptions import ResourceExhausted
+
     model = genai.GenerativeModel("gemini-3.8-flash")
-    response = model.generate_content(
-        prompt,
-        generation_config=genai.GenerationConfig(
-            temperature=0.4,
-            max_output_tokens=4096,
-        ),
-    )
+    
+    max_retries = 3
+    response = None
+    for attempt in range(max_retries):
+        try:
+            response = model.generate_content(
+                prompt,
+                generation_config=genai.GenerationConfig(
+                    temperature=0.4,
+                    max_output_tokens=4096,
+                ),
+            )
+            break
+        except ResourceExhausted as e:
+            if attempt == max_retries - 1:
+                raise e
+            print(f"Rate limit hit, waiting 35 seconds... (Attempt {attempt+1}/{max_retries})")
+            time.sleep(35)
 
     # 5. Parse response
     text = response.text.strip()

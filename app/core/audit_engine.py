@@ -42,15 +42,29 @@ def audit_pitch_content(pitch: dict, policy_ids: list[str]) -> dict:
         pitch_content=pitch_text,
     )
 
-    # Run audit with Gemini
+    # Run audit with Gemini (with retry for rate limits)
+    import time
+    from google.api_core.exceptions import ResourceExhausted
+
     model = genai.GenerativeModel("gemini-3.8-flash")
-    response = model.generate_content(
-        prompt,
-        generation_config=genai.GenerationConfig(
-            temperature=0.1,  # Low temperature for strict verification
-            max_output_tokens=4096,
-        ),
-    )
+    
+    max_retries = 3
+    response = None
+    for attempt in range(max_retries):
+        try:
+            response = model.generate_content(
+                prompt,
+                generation_config=genai.GenerationConfig(
+                    temperature=0.1,  # Low temperature for strict verification
+                    max_output_tokens=4096,
+                ),
+            )
+            break
+        except ResourceExhausted as e:
+            if attempt == max_retries - 1:
+                raise e
+            print(f"Rate limit hit in audit, waiting 35 seconds... (Attempt {attempt+1}/{max_retries})")
+            time.sleep(35)
 
     # Parse response
     text = response.text.strip()

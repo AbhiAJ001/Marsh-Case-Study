@@ -27,14 +27,27 @@ def generate_company_profile(company_name: str) -> dict:
 
     prompt = COMPANY_PROFILE_PROMPT.format(company_name=company_name)
 
-    # Generate content
-    response = model.generate_content(
-        prompt,
-        generation_config=genai.GenerationConfig(
-            temperature=0.3,
-            max_output_tokens=2048,
-        ),
-    )
+    # Generate content (with retry for rate limits)
+    import time
+    from google.api_core.exceptions import ResourceExhausted
+
+    max_retries = 3
+    response = None
+    for attempt in range(max_retries):
+        try:
+            response = model.generate_content(
+                prompt,
+                generation_config=genai.GenerationConfig(
+                    temperature=0.3,
+                    max_output_tokens=2048,
+                ),
+            )
+            break
+        except ResourceExhausted as e:
+            if attempt == max_retries - 1:
+                raise e
+            print(f"Rate limit hit in profile gen, waiting 35 seconds... (Attempt {attempt+1}/{max_retries})")
+            time.sleep(35)
 
     # Parse JSON from response
     text = response.text.strip()
