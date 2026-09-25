@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marsh — Insurance Pitch Generator</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="site-header">
+        <div class="header-inner">
+            <div class="brand">
+                <span class="brand-name">Marsh</span>
+                <span class="brand-sep">/</span>
+                <span class="brand-tool">Pitch Generator</span>
+            </div>
+            <div class="header-meta">
+                <span class="status-dot" id="statusDot"></span>
+                <span class="status-text" id="statusText">Ready</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Input Section -->
+        <section class="section" id="inputSection">
+            <div class="section-header">
+                <span class="section-label">Step 1</span>
+                <h2 class="section-title">Company & Policy Selection</h2>
+            </div>
+
+            <div class="input-grid">
+                <div class="input-group">
+                    <label class="input-label" for="companyName">Company Name</label>
+                    <input 
+                        type="text" 
+                        id="companyName" 
+                        class="input-field" 
+                        placeholder="e.g. Infosys, Zomato, Tata Motors"
+                        autocomplete="off"
+                    >
+                    <span class="input-hint">We'll research this company using real-time data</span>
+                </div>
+
+                <div class="input-group">
+                    <label class="input-label">Select Policies</label>
+                    <div class="checkbox-group" id="policyCheckboxes">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="action-row">
+                <button class="btn btn-primary" id="generateBtn" onclick="handleGenerate()">
+                    Generate Pitch
+                </button>
+            </div>
+        </section>
+
+        <!-- Company Profile Section -->
+        <section class="section hidden" id="profileSection">
+            <div class="section-header">
+                <span class="section-label">Step 2</span>
+                <h2 class="section-title">Company Profile</h2>
+            </div>
+            <div id="profileContent" class="profile-card">
+                <!-- Populated by JS -->
+            </div>
+        </section>
+
+        <!-- Pitch Slides Section -->
+        <section class="section hidden" id="pitchSection">
+            <div class="section-header">
+                <span class="section-label">Step 3</span>
+                <h2 class="section-title" id="pitchTitle">Generated Pitch</h2>
+            </div>
+
+            <div id="slidesContainer" class="slides-container">
+                <!-- Populated by JS -->
+            </div>
+
+            <div class="action-row">
+                <button class="btn btn-secondary" id="downloadBtn" onclick="handleDownload()">
+                    Download PPTX
+                </button>
+                <button class="btn btn-outline" id="auditBtn" onclick="handleAudit()">
+                    Run Audit
+                </button>
+            </div>
+        </section>
+
+        <!-- Audit Section -->
+        <section class="section hidden" id="auditSection">
+            <div class="section-header">
+                <span class="section-label">Step 4</span>
+                <h2 class="section-title">Content Audit</h2>
+            </div>
+
+            <div id="auditSummary" class="audit-summary">
+                <!-- Populated by JS -->
+            </div>
+
+            <div id="auditClaims" class="audit-claims">
+                <!-- Populated by JS -->
+            </div>
+        </section>
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay hidden" id="loadingOverlay">
+            <div class="loading-content">
+                <div class="loading-spinner"></div>
+                <p class="loading-text" id="loadingText">Working on it...</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+        <p>NMIMS 2026 Case Study — Built with OKF knowledge engineering</p>
+    </footer>
+
+    <script src="/js/app.js"></script>
+</body>
+</html>
