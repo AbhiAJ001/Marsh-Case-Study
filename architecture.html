@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>System Architecture — Marsh AI Pitch Generator</title>
+<style>
+  :root {
+    --bg: #fafaf9;
+    --surface: #ffffff;
+    --border: #e5e5e4;
+    --text-primary: #1a1a19;
+    --text-secondary: #525251;
+    --text-muted: #8a8a89;
+    --accent: #1a6b5a;
+    --accent-light: #e8f5f0;
+    --red: #b44333;
+    --red-light: #fef2f0;
+    --amber: #946b2d;
+    --amber-light: #fef9ee;
+    --blue: #2563eb;
+    --blue-light: #eff6ff;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 64px 32px;
+  }
+
+  /* Header */
+  .page-header {
+    margin-bottom: 64px;
+  }
+  .page-header .label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+  .page-header h1 {
+    font-size: 2rem;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+  }
+  .page-header p {
+    font-size: 0.9375rem;
+    color: var(--text-secondary);
+    max-width: 600px;
+  }
+
+  /* Section */
+  .section {
+    margin-bottom: 56px;
+  }
+  .section-title {
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Architecture Diagram */
+  .arch-canvas {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 48px 40px;
+    overflow-x: auto;
+  }
+
+  .arch-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 24px;
+    margin-bottom: 32px;
+  }
+  .arch-row.centered {
+    justify-content: center;
+  }
+
+  .arch-connector {
+    display: flex;
+    justify-content: center;
+    margin: -8px 0 -8px 0;
+  }
+  .arch-connector .arrow {
+    width: 1px;
+    height: 32px;
+    background: var(--border);
+    position: relative;
+  }
+  .arch-connector .arrow::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid #b0b0af;
+  }
+  .arch-connector.wide {
+    position: relative;
+  }
+  .arch-connector.wide .line-group {
+    display: flex;
+    gap: 200px;
+  }
+
+  /* Node Styles */
+  .node {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 20px;
+    background: var(--surface);
+    min-width: 200px;
+    transition: box-shadow 0.15s ease;
+    cursor: default;
+  }
+  .node:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .node .node-label {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .node .node-title {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+    letter-spacing: -0.01em;
+  }
+  .node .node-desc {
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+  .node .node-file {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 8px;
+    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+  }
+
+  /* Node color coding */
+  .node.ui { border-left: 3px solid var(--accent); }
+  .node.ui .node-label { color: var(--accent); }
+
+  .node.core { border-left: 3px solid var(--blue); }
+  .node.core .node-label { color: var(--blue); }
+
+  .node.rag { border-left: 3px solid var(--amber); }
+  .node.rag .node-label { color: var(--amber); }
+
+  .node.audit { border-left: 3px solid var(--red); }
+  .node.audit .node-label { color: var(--red); }
+
+  .node.data { border-left: 3px solid var(--text-muted); }
+  .node.data .node-label { color: var(--text-muted); }
+
+  .node.output { border-left: 3px solid #16a34a; }
+  .node.output .node-label { color: #16a34a; }
+
+  .node.external { 
+    border: 1px dashed var(--border); 
+    border-left: 3px dashed #8b5cf6;
+    background: #fafafe; 
+  }
+  .node.external .node-label { color: #8b5cf6; }
+
+  /* Flow labels */
+  .flow-label {
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+    text-align: center;
+    margin: -4px 0 -4px 0;
+    font-style: italic;
+  }
+
+  /* Grid Layout for parallel components */
+  .parallel-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+  }
+
+  /* Split row */
+  .split-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    padding: 16px 20px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 40px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+  }
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+  }
+
+  /* Data flow section */
+  .flow-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 32px;
+  }
+  .flow-step {
+    display: flex;
+    gap: 20px;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .flow-step:last-child { border-bottom: none; }
+  .flow-step .step-number {
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    background: var(--accent-light);
+    color: var(--accent);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .flow-step .step-content h3 {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .flow-step .step-content p {
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+  }
+  .flow-step .step-content .step-io {
+    margin-top: 8px;
+    font-size: 0.75rem;
+    font-family: 'SF Mono', 'Cascadia Code', monospace;
+    color: var(--text-muted);
+  }
+
+  /* Tech stack */
+  .stack-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+  }
+  .stack-item {
+    padding: 14px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  .stack-item .stack-name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+  .stack-item .stack-role {
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+  }
+
+  /* Practices section */
+  .practices-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  .practice-card {
+    padding: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  .practice-card h3 {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+  .practice-card ul {
+    list-style: none;
+    padding: 0;
+  }
+  .practice-card li {
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+    padding: 4px 0;
+    padding-left: 16px;
+    position: relative;
+  }
+  .practice-card li::before {
+    content: '—';
+    position: absolute;
+    left: 0;
+    color: var(--text-muted);
+  }
+
+  @media (max-width: 768px) {
+    .page { padding: 32px 16px; }
+    .parallel-grid { grid-template-columns: 1fr; }
+    .split-row { grid-template-columns: 1fr; }
+    .practices-grid { grid-template-columns: 1fr; }
+    .arch-canvas { padding: 24px 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <header class="page-header">
+    <div class="label">System Architecture</div>
+    <h1>Marsh AI Pitch Generator</h1>
+    <p>AI-powered application that generates client-specific insurance marketing pitches grounded in policy documents, with built-in content auditing.</p>
+  </header>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background: var(--accent);"></div> UI Layer</div>
+    <div class="legend-item"><div class="legend-dot" style="background: var(--blue);"></div> Core Logic</div>
+    <div class="legend-item"><div class="legend-dot" style="background: var(--amber);"></div> RAG Pipeline</div>
+    <div class="legend-item"><div class="legend-dot" style="background: var(--red);"></div> Audit Engine</div>
+    <div class="legend-item"><div class="legend-dot" style="background: var(--text-muted);"></div> Data Sources</div>
+    <div class="legend-item"><div class="legend-dot" style="background: #8b5cf6;"></div> External Service</div>
+    <div class="legend-item"><div class="legend-dot" style="background: #16a34a;"></div> Output</div>
+  </div>
+
+  <!-- Architecture Diagram -->
+  <div class="section">
+    <div class="section-title">Component Architecture</div>
+    <div class="arch-canvas">
+
+      <!-- Layer 1: User Input -->
+      <div class="arch-row centered">
+        <div class="node ui" style="min-width: 480px;">
+          <div class="node-label">UI Layer</div>
+          <div class="node-title">Streamlit Application</div>
+          <div class="node-desc">Company name input, policy document selector, generate button, results display. Custom CSS overriding all defaults for human-crafted feel.</div>
+          <div class="node-file">app/main.py · app/styles.css · app/components/</div>
+        </div>
+      </div>
+
+      <div class="arch-connector"><div class="arrow"></div></div>
+      <div class="flow-label">company_name + selected_policies</div>
+
+      <!-- Layer 2: Company Research -->
+      <div class="arch-row centered">
+        <div class="node core">
+          <div class="node-label">Core Logic</div>
+          <div class="node-title">generateCompanyProfile()</div>
+          <div class="node-desc">Research company: industry, size, HQ, key business risks, insurance needs. Assumptions clearly labelled.</div>
+          <div class="node-file">app/core/company_profile.py</div>
+        </div>
+        <div class="node external">
+          <div class="node-label">External</div>
+          <div class="node-title">Google Gemini API</div>
+          <div class="node-desc">LLM for company research, pitch generation, and audit reasoning.</div>
+          <div class="node-file">google-generativeai SDK</div>
+        </div>
+      </div>
+
+      <div class="arch-connector"><div class="arrow"></div></div>
+      <div class="flow-label">CompanyProfile object</div>
+
+      <!-- Layer 3: RAG + Pitch Gen (parallel) -->
+      <div class="split-row">
+        <div class="node rag">
+          <div class="node-label">RAG Pipeline</div>
+          <div class="node-title">Policy Document Retrieval</div>
+          <div class="node-desc">PDF → intelligent chunking → embedding → FAISS index → semantic search. Returns ranked chunks with source metadata (file, page, section).</div>
+          <div class="node-file">app/rag/document_loader.py · vector_store.py · retriever.py</div>
+        </div>
+        <div class="node data">
+          <div class="node-label">Data Source</div>
+          <div class="node-title">4 Policy Document PDFs</div>
+          <div class="node-desc">ABHI Activ One · Care Health · HDFC Optima Secure+ · Niva Bupa ReAssure 2.0. Total 24 pages of coverage, benefits, pricing, exclusions.</div>
+          <div class="node-file">Policy Documents/*.pdf</div>
+        </div>
+      </div>
+
+      <div class="arch-connector"><div class="arrow"></div></div>
+      <div class="flow-label">CompanyProfile + relevant policy chunks</div>
+
+      <!-- Layer 4: Pitch Generator -->
+      <div class="arch-row centered">
+        <div class="node core" style="min-width: 480px;">
+          <div class="node-label">Core Logic</div>
+          <div class="node-title">generateMarketingPitch()</div>
+          <div class="node-desc">Produces 3–5 slide structured content: company overview, why Marsh, policy benefits mapped to exposures, recommended policy. Every claim grounded in retrieved policy text.</div>
+          <div class="node-file">app/core/pitch_generator.py · app/utils/prompts.py</div>
+        </div>
+      </div>
+
+      <div class="arch-connector"><div class="arrow"></div></div>
+      <div class="flow-label">PitchDeck object (slides + source references)</div>
+
+      <!-- Layer 5: Parallel outputs -->
+      <div class="split-row">
+        <div class="node output">
+          <div class="node-label">Output</div>
+          <div class="node-title">PowerPoint Builder</div>
+          <div class="node-desc">Converts structured pitch content into a clean, downloadable .pptx file with professional slide layouts.</div>
+          <div class="node-file">app/core/pptx_builder.py → output/*.pptx</div>
+        </div>
+        <div class="node audit">
+          <div class="node-label">Audit Engine</div>
+          <div class="node-title">auditPitchContent()</div>
+          <div class="node-desc">Traces each claim to policy source text. Classifies: verified, partially supported, unverifiable. Returns confidence score + structured report.</div>
+          <div class="node-file">app/core/audit_engine.py</div>
+        </div>
+      </div>
+
+      <div class="arch-connector"><div class="arrow"></div></div>
+      <div class="flow-label">.pptx file + AuditReport</div>
+
+      <!-- Layer 6: Final Output -->
+      <div class="arch-row centered">
+        <div class="node ui" style="min-width: 480px;">
+          <div class="node-label">UI Layer</div>
+          <div class="node-title">Results Display</div>
+          <div class="node-desc">Pitch viewer (slide-by-slide), PPT download button, audit panel (confidence %, per-claim breakdown, flagged items). Advisor actions: approve, edit, reject.</div>
+          <div class="node-file">app/components/pitch_viewer.py · audit_panel.py</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Data Flow -->
+  <div class="section">
+    <div class="section-title">Request Lifecycle</div>
+    <div class="flow-section">
+      <div class="flow-step">
+        <div class="step-number">1</div>
+        <div class="step-content">
+          <h3>User Input</h3>
+          <p>Advisor enters a company name and selects one or more policy documents from the four available options. Clicks Generate.</p>
+          <div class="step-io">input_form.py → (company_name: str, policies: list[str])</div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-number">2</div>
+        <div class="step-content">
+          <h3>Company Research</h3>
+          <p>Gemini LLM researches the company — industry, employee count, headquarters, key business risks, and health insurance needs. Unverified data is marked with [Assumed] labels.</p>
+          <div class="step-io">company_profile.py → CompanyProfile { industry, size, risks, needs }</div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-number">3</div>
+        <div class="step-content">
+          <h3>Policy Retrieval (RAG)</h3>
+          <p>Company risks and needs are used as queries against the FAISS vector index. Top 8-10 most relevant policy chunks are retrieved, each tagged with source document, page, and section type.</p>
+          <div class="step-io">retriever.py → list[RetrievalResult] with similarity scores</div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-number">4</div>
+        <div class="step-content">
+          <h3>Pitch Generation</h3>
+          <p>Company profile + retrieved policy chunks are fed to Gemini with grounding instructions. LLM produces structured 3-5 slide content with explicit source references for each claim.</p>
+          <div class="step-io">pitch_generator.py → PitchDeck { slides[], recommended_policy }</div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-number">5</div>
+        <div class="step-content">
+          <h3>Content Audit</h3>
+          <p>Each factual claim in the pitch is extracted and cross-referenced against the raw policy documents. Claims are classified as verified (source found), partially supported, or unverifiable (flagged for human review).</p>
+          <div class="step-io">audit_engine.py → AuditReport { confidence: 0.87, claims[] }</div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-number">6</div>
+        <div class="step-content">
+          <h3>Output Delivery</h3>
+          <p>Pitch is rendered as readable slides. PowerPoint file is generated for download. Audit report shows per-claim status with source citations. Advisor can approve, edit, or reject the pitch.</p>
+          <div class="step-io">pptx_builder.py → .pptx | audit_panel.py → approve/edit/reject</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tech Stack -->
+  <div class="section">
+    <div class="section-title">Technology Stack</div>
+    <div class="stack-grid">
+      <div class="stack-item">
+        <div class="stack-name">Streamlit</div>
+        <div class="stack-role">Web UI framework with custom CSS</div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-name">Google Gemini</div>
+        <div class="stack-role">LLM for reasoning and generation</div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-name">LangChain</div>
+        <div class="stack-role">RAG orchestration framework</div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-name">FAISS</div>
+        <div class="stack-role">Vector similarity search engine</div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-name">python-pptx</div>
+        <div class="stack-role">PowerPoint file generation</div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-name">PyPDF2</div>
+        <div class="stack-role">PDF text extraction</div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-name">Python 3.12</div>
+        <div class="stack-role">Runtime environment</div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-name">dotenv</div>
+        <div class="stack-role">Secure environment config</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI & Agentic Practices -->
+  <div class="section">
+    <div class="section-title">AI Usage & Agentic Development Practices</div>
+    <div class="practices-grid">
+      <div class="practice-card">
+        <h3>Responsible AI Practices</h3>
+        <ul>
+          <li>RAG grounding — all claims traced to source policy documents</li>
+          <li>Hallucination detection via audit engine with confidence scoring</li>
+          <li>Assumptions explicitly labelled — never presented as fact</li>
+          <li>Human-in-the-loop — advisor must approve, edit, or reject every pitch</li>
+          <li>Centralized prompt management — versioned, auditable prompts</li>
+          <li>No secrets in code — API keys via environment variables only</li>
+        </ul>
+      </div>
+      <div class="practice-card">
+        <h3>Agentic Development Workflow</h3>
+        <ul>
+          <li>Persistent memory system — mind.md as project context for AI agents</li>
+          <li>Structured task tracking — log.md with phase/task/status/output</li>
+          <li>System blueprint — map.md with full file-to-function reference</li>
+          <li>Decision logging — every tech choice recorded with rationale</li>
+          <li>Modular architecture — each component independently testable</li>
+          <li>Separation of concerns — UI, logic, RAG, and audit are isolated layers</li>
+        </ul>
+      </div>
+      <div class="practice-card">
+        <h3>RAG Best Practices</h3>
+        <ul>
+          <li>Semantic chunking — split by document structure, not character count</li>
+          <li>Rich metadata — source file, page number, section type per chunk</li>
+          <li>Source attribution — every retrieval result carries provenance</li>
+          <li>Configurable top-k — tunable retrieval depth for precision vs recall</li>
+          <li>Persistent vector store — FAISS index saved to disk, not rebuilt each run</li>
+          <li>Multi-document support — retrieval spans all selected policies</li>
+        </ul>
+      </div>
+      <div class="practice-card">
+        <h3>Production Quality Signals</h3>
+        <ul>
+          <li>Graceful error handling — meaningful messages, not stack traces</li>
+          <li>Input validation — company name and policy selection enforced</li>
+          <li>Progressive loading states — stage labels during generation</li>
+          <li>Structured data models — dataclasses for all internal interfaces</li>
+          <li>Clean code — docstrings, type hints, organized imports</li>
+          <li>Anti-AI design — UI deliberately crafted to feel human-made</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div style="text-align: center; padding-top: 40px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 0.8125rem;">
+    Marsh AI Pitch Generator — NMIMS 2026 Internship Case Study · Built with intentional design
+  </div>
+
+</div>
+</body>
+</html>
