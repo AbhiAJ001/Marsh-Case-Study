@@ -248,7 +248,15 @@ Phase D:  FactCheckerAgent (on-demand)
 
 ---
 
-### ✨ Sep 26, 2026 — 12:01 IST | Model Router v2 — 5 Providers, 7 Keys
+### 🐛 Sep 26, 2026 — 18:24 IST | Fix: Clean up JSON Parsing Errors in Frontend
+**Commit**: `7b7439c` — *Fix: Clean up JSON parsing error messages in frontend*
+
+**Problem**: When an LLM model returned a truncated response (e.g. hitting the `max_tokens` limit) that couldn't be parsed as JSON, the backend threw a `ValueError` containing the first 500 characters of the raw JSON string. The frontend was displaying this massive string inside the red error box, complete with redundant "Failed to research company:" prefixes.
+**Fix**: 
+- `server.py` now intercepts errors containing "could not parse json".
+- It logs the raw truncated text to the server console for debugging.
+- It returns a concise, user-friendly string to the frontend: *"The AI model failed to produce a valid data format (possible response truncation). Please try again."*
+- Redundant error prefixes in `app.js` were removed.
 **Commit**: `99679e2` — *Feat: Model Router v2 - 5 providers, 7 API keys, agent-specific routing chains*
 
 **New API keys integrated**:
