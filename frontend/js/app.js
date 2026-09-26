@@ -324,20 +324,23 @@ async function handleDownload() {
         const res = await fetch('/api/download-pptx', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pitch: currentPitch }),
+            body: JSON.stringify({
+                pitch:   currentPitch,
+                profile: currentProfile || null,   // include company profile data
+            }),
         });
 
         if (!res.ok) throw new Error('Download failed');
 
         const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `pitch_${(currentPitch.target_company || 'company').replace(/\s+/g, '_')}.pptx`;
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        a.download = `marsh_pitch_${(currentPitch.target_company || 'company').replace(/\s+/g, '_')}.pptx`;
         a.click();
         URL.revokeObjectURL(url);
     } catch (err) {
-        showError('pitchSection', 'Failed to generate PPTX. ' + err.message);
+        showError('pitchSection', err.message);
     }
 
     hideLoading();

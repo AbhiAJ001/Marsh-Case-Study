@@ -155,16 +155,17 @@ def api_audit():
 @app.route("/api/download-pptx", methods=["POST"])
 def api_download_pptx():
     """Generate and download a PowerPoint from the pitch data."""
-    data  = request.get_json()
-    pitch = data.get("pitch")
+    data    = request.get_json()
+    pitch   = data.get("pitch")
+    profile = data.get("profile")   # Optional — used for profile slide
 
     if not pitch:
         return jsonify({"error": "Pitch data is required"}), 400
 
     try:
-        buffer   = build_pptx(pitch)
+        buffer   = build_pptx(pitch, profile)
         company  = pitch.get("target_company", "company").replace(" ", "_")
-        filename = f"pitch_{company}.pptx"
+        filename = f"marsh_pitch_{company}.pptx"
 
         return send_file(
             buffer,
