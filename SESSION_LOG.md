@@ -248,7 +248,58 @@ Phase D:  FactCheckerAgent (on-demand)
 
 ---
 
-### 🐛 Sep 26, 2026 — 10:44 IST | Bug Fix: Audit 0 Claims (Slide-by-Slide Micro-Audits)
+### ✨ Sep 26, 2026 — 12:01 IST | Model Router v2 — 5 Providers, 7 Keys
+**Commit**: `99679e2` — *Feat: Model Router v2 - 5 providers, 7 API keys, agent-specific routing chains*
+
+**New API keys integrated**:
+- Gemini (updated key), Groq (updated key)
+- Mistral key 1 + key 2 (`mistral-large-latest`, `mistral-medium-latest`)
+- OpenRouter key 1 + key 2 (`llama-3.3-70b-instruct`, `gemini-2.0-flash-exp:free`)
+- NVIDIA NIM (`meta/llama-3.1-70b-instruct`)
+
+**Model chain** (9 slots):
+```
+Gemini → OpenRouter Llama → NVIDIA Llama → Mistral Large → Groq 120B
+→ OpenRouter Gemini → Mistral Medium → Groq Qwen → Groq 20B
+```
+
+**Agent-specific routing**:
+- `task_type="research"` → Gemini first
+- `task_type="pitch"` → OpenRouter/NVIDIA first
+- `task_type="audit"` → Mistral first
+
+**New package**: `openai>=1.40` — used as OpenAI-compatible client for OpenRouter, NVIDIA, Mistral
+
+---
+
+### 🐛 Sep 26, 2026 — 18:11 IST | Fix: All 5 Slide Agents Get task_type="pitch"
+**Commit**: `f8fa3a0` — *Fix: All 5 slide agents now use task_type='pitch' for smart routing*
+
+**Problem**: Only `ExecutiveSummaryAgent` had `task_type="pitch"`. The other 4 agents (`RiskAlignmentAgent`, `PolicyComparisonAgent`, `ROIValueAgent`, `CallToActionAgent`) used `"general"` routing — meaning Gemini was tried first even though OpenRouter Llama-3.3-70B and NVIDIA Llama-3.1-70B are better at structured creative JSON.
+
+**Fix**: Added `task_type = "pitch"` to all 4 remaining slide agents.
+
+---
+
+### ✨ Sep 26, 2026 — 18:15 IST | Feat: Step Progress Indicators + Full Mobile Responsiveness
+**Commit**: `8ca9b7f` — *Feat: Step-by-step loading indicators + full mobile responsiveness*
+
+**Loading Indicators**:
+- Added inline 3-step progress tracker between input form and results
+- Step 1: **Researching Company** — spinner while API call runs, green tick + industry/size summary on done
+- Step 2: **Retrieving Policy Knowledge** — shows count of OKF bundles loaded
+- Step 3: **Writing Pitch Slides** — shows "5 specialist agents writing in parallel", tick + slide count on done
+- Each step icon: idle (number) → running (spinning ring) → done (green ✓)
+- Generate button disabled during generation to prevent double-submit
+- Enter key on company name input now submits the form
+
+**Mobile Responsiveness**:
+- **768px (tablet)**: reduced container padding, smaller section titles
+- **640px (mobile)**: input grid → 1 column; buttons → full-width stacked; profile rows → vertical; audit stats wrap
+- **400px (small phone)**: smaller font base, audit stats vertical stack, claim header stacks vertically
+- All cards (profile, slide, audit) reduce padding on small screens
+
+
 **Commit**: `b9f9e0c` — *Fix: Audit now works - slide-by-slide micro-prompts bypass Groq TPM limits*
 
 **Problem**: Combined audit prompt (5 slides + 4 policy contexts) = 10,000+ tokens → Groq truncates → model returns knowledge dump → fallback "0 claims"  
