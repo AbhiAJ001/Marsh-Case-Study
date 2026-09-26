@@ -248,6 +248,19 @@ Phase D:  FactCheckerAgent (on-demand)
 
 ---
 
+### 🚀 Sep 26, 2026 — 18:38 IST | Architecture: Model Router Auto-Fallback on Invalid JSON
+**Commit**: `af42068` — *Fix: Add JSON validation to Model Router to enable auto-fallback on truncated responses*
+
+**Root Cause**: The LLM (Gemini) was occasionally hitting output token limits or silently failing and returning truncated text (e.g., cutting off mid-word). Because the API technically succeeded and returned *some* text, our Model Router thought the call was successful and passed the broken text to the `ResearchAgent`, which then crashed trying to parse the incomplete JSON.
+
+**Fix**: 
+- Upgraded the `generate()` function in `model_router.py` to accept `require_json=True`.
+- The router now actively attempts to parse the JSON *inside* its `try/except` loop.
+- If the model returns truncated/invalid JSON, it throws an internal error, forcing the router to discard that output and automatically try the *next* provider in the chain (e.g., smoothly falling back to OpenRouter Llama-3.3-70B without showing an error to the user).
+- This makes the multi-agent pipeline significantly more resilient against bad LLM outputs.
+
+---
+
 ### 🐛 Sep 26, 2026 — 18:24 IST | Fix: Clean up JSON Parsing Errors in Frontend
 **Commit**: `7b7439c` — *Fix: Clean up JSON parsing error messages in frontend*
 
