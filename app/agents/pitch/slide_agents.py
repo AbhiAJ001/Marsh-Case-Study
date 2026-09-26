@@ -83,6 +83,7 @@ class RiskAlignmentAgent(BaseAgent):
     name        = "RiskAlignmentAgent"
     temperature = 0.25
     max_tokens  = 700
+    task_type   = "pitch"   # → OpenRouter/NVIDIA first (best structured JSON)
 
     def build_prompt(self, company_profile: dict, policy_contexts: list, **_) -> str:
         company_name = company_profile.get("company_name", "the company")
@@ -120,6 +121,7 @@ class PolicyComparisonAgent(BaseAgent):
     name        = "PolicyComparisonAgent"
     temperature = 0.2
     max_tokens  = 700
+    task_type   = "pitch"   # → OpenRouter/NVIDIA first (best structured JSON)
 
     def build_prompt(self, company_profile: dict, policy_contexts: list, **_) -> str:
         company_name = company_profile.get("company_name", "the company")
@@ -158,6 +160,7 @@ class ROIValueAgent(BaseAgent):
     name        = "ROIValueAgent"
     temperature = 0.3
     max_tokens  = 600
+    task_type   = "pitch"   # → OpenRouter/NVIDIA first (best structured JSON)
 
     def build_prompt(self, company_profile: dict, policy_contexts: list, **_) -> str:
         company_name = company_profile.get("company_name", "the company")
@@ -195,6 +198,7 @@ class CallToActionAgent(BaseAgent):
     name        = "CallToActionAgent"
     temperature = 0.35
     max_tokens  = 500
+    task_type   = "pitch"   # → OpenRouter/NVIDIA first (best structured JSON)
 
     def build_prompt(self, company_profile: dict, policy_contexts: list, **_) -> str:
         company_name  = company_profile.get("company_name", "the company")
