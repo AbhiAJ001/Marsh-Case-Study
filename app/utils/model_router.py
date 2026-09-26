@@ -84,7 +84,7 @@ def _call_gemini(prompt: str, temperature: float, max_tokens: int) -> str:
     if not GOOGLE_API_KEY:
         raise RuntimeError("GOOGLE_API_KEY not set")
     genai.configure(api_key=GOOGLE_API_KEY)
-    model = genai.GenerativeModel("gemini-3.8-flash")
+    model = genai.GenerativeModel("gemini-1.5-flash")
     response = model.generate_content(
         prompt,
         generation_config=genai.GenerationConfig(
@@ -193,7 +193,7 @@ def _get_providers(prompt: str, temperature: float, max_tokens: int,
 
     # All available slots
     slots = {
-        "gemini":          ("gemini-3.8-flash",
+        "gemini":          ("gemini-1.5-flash",
                             lambda: _call_gemini(prompt, temperature, max_tokens)),
         "openrouter-llama":("openrouter-llama-3.3-70b",
                             lambda: _call_openrouter(prompt, temperature, max_tokens,
@@ -256,6 +256,7 @@ def generate(
     temperature: float = 0.3,
     max_tokens: int = 1500,
     task_type: str = "general",
+    require_json: bool = True,
 ) -> dict:
     """
     Try each provider in task-specific order and return the first success.
@@ -266,6 +267,7 @@ def generate(
         max_tokens:  Max output tokens (advisory — some providers cap lower)
         task_type:   "research" | "pitch" | "audit" | "general"
                      Controls which provider is tried first.
+        require_json: If True, validates that the output is parseable JSON before accepting it.
 
     Returns:
         {"text": str, "model_used": str}
@@ -282,6 +284,11 @@ def generate(
             text = caller()
             if not text or not text.strip():
                 raise ValueError("Empty response from model")
+                
+            if require_json:
+                # This will raise ValueError if parsing fails, forcing a fallback!
+                _ = parse_json_from_response(text)
+                
             print(f"[ModelRouter] [OK] Success with {model_name}")
             return {"text": text, "model_used": model_name}
 
