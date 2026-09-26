@@ -1,108 +1,143 @@
 """
 Fact-Checker Agent — Verifies pitch claims against OKF source knowledge.
 
-Replaces the old audit_engine.py with an agent-based design that:
-  - Validates the JSON response shape before returning
-  - Falls back gracefully when the LLM can't complete the audit
-  - Attaches which model performed the audit
+Strategy: Instead of one massive audit prompt (which overflows Groq's TPM),
+we audit SLIDE BY SLIDE. Each micro-audit is a small, focused LLM call
+(~1,000 tokens input + 400 tokens output) that fits comfortably within limits.
+
+Results are merged into a single audit report.
 """
 
+import json
 from ..base_agent import BaseAgent, AgentResult
 
 
-AUDIT_PROMPT = """You are a compliance auditor reviewing a Marsh insurance pitch for accuracy.
+# ── Compact micro-audit prompt (one slide at a time) ─────────────────────────
 
-SOURCE POLICY KNOWLEDGE (ground truth — only these facts are verified):
+MICRO_AUDIT_PROMPT = """You are a compliance auditor. Check the slide bullets below against the policy knowledge.
+
+POLICY KNOWLEDGE (ground truth):
 {okf_context}
 
-PITCH CONTENT TO AUDIT:
-{pitch_content}
+SLIDE TO AUDIT (Slide {slide_number} — {slide_title}):
+{bullets}
 
-For each factual claim in the pitch, verify it against the source knowledge above.
-
-Return ONLY this JSON (no markdown, no code fences):
+Return ONLY this JSON (no markdown):
 {{
-    "audit_summary": "PASS / PASS_WITH_NOTES / FAIL",
-    "total_claims": <number>,
-    "verified_claims": <number>,
-    "flagged_claims": <number>,
-    "claims": [
-        {{
-            "claim_text": "the exact claim",
-            "status": "VERIFIED / UNVERIFIED / INACCURATE / ASSUMPTION",
-            "confidence": 0.0,
-            "source_concept": "which OKF concept supports this (or null)",
-            "notes": "brief explanation"
-        }}
-    ],
-    "recommendations": ["recommendation 1", "recommendation 2"]
+  "slide_number": {slide_number},
+  "claims": [
+    {{
+      "claim_text": "exact bullet text",
+      "status": "VERIFIED",
+      "confidence": 0.9,
+      "notes": "brief note"
+    }}
+  ]
 }}
 
-Rules:
-- VERIFIED = claim exactly matches source data
-- UNVERIFIED = plausible but not in the provided sources
-- INACCURATE = contradicts source data — flag immediately
-- ASSUMPTION = reasonable inference, not directly stated
-- Be strict — when in doubt mark UNVERIFIED not VERIFIED
+Status values: VERIFIED (in source) | UNVERIFIED (not found) | INACCURATE (contradicts source) | ASSUMPTION (inferred)
+Be brief. One object per bullet point.
 """
-
-
-def _format_pitch(pitch: dict) -> str:
-    lines = [f"Pitch Title: {pitch.get('pitch_title', 'N/A')}\n"]
-    for slide in pitch.get("slides", []):
-        lines.append(f"\n--- Slide {slide.get('slide_number', '?')} ---")
-        lines.append(f"Title: {slide.get('title', '')}")
-        if slide.get("subtitle"):
-            lines.append(f"Subtitle: {slide['subtitle']}")
-        for bullet in slide.get("bullets", []):
-            lines.append(f"* {bullet}")
-    if pitch.get("recommended_policy"):
-        lines.append(f"\nRecommendation: {pitch['recommended_policy']}")
-    return "\n".join(lines)
 
 
 class FactCheckerAgent(BaseAgent):
     """
-    Audits a generated pitch slide-by-slide against OKF source knowledge.
-    Falls back to a safe manual-review response if LLM parsing fails.
+    Audits a pitch slide-by-slide with compact micro-prompts.
+    Each slide is a separate LLM call so no single request overflows the TPM limit.
     """
 
     name        = "FactCheckerAgent"
-    temperature = 0.1       # Very low — we want strict deterministic verification
-    max_tokens  = 1500
+    temperature = 0.1
+    max_tokens  = 600     # Small — just claim objects for one slide
 
-    def build_prompt(self, pitch: dict, okf_context: str, **_) -> str:
-        return AUDIT_PROMPT.format(
-            okf_context=okf_context[:2000],
-            pitch_content=_format_pitch(pitch),
-        )
+    def build_prompt(self, **inputs) -> str:
+        # Not used — we use custom run() below
+        return ""
 
     def parse_output(self, text: str, **_) -> dict:
         try:
-            result = self._parse_json(text)
-            # Validate expected shape
-            if "audit_summary" not in result:
-                raise ValueError("Missing audit_summary key")
-            return result
+            return self._parse_json(text)
         except Exception:
-            return self._fallback()
+            return {"claims": []}
 
-    def _fallback(self) -> dict:
-        return {
-            "audit_summary":   "PASS_WITH_NOTES",
-            "total_claims":    0,
-            "verified_claims": 0,
-            "flagged_claims":  0,
-            "claims":          [],
-            "recommendations": [
-                "Automated audit could not be completed due to model token limits.",
-                "Please review all policy feature names and coverage amounts manually.",
-            ],
+    def _audit_one_slide(self, slide: dict, okf_context: str) -> list:
+        """Audit a single slide and return its claim list."""
+        bullets = slide.get("bullets", [])
+        if not bullets:
+            return []
+
+        bullets_text = "\n".join(f"- {b}" for b in bullets)
+        prompt = MICRO_AUDIT_PROMPT.format(
+            okf_context=okf_context[:1200],          # ~300 tokens
+            slide_number=slide.get("slide_number", "?"),
+            slide_title=slide.get("title", ""),
+            bullets=bullets_text,
+        )
+
+        try:
+            llm_out = self._call_llm(prompt)
+            result  = self._parse_json(llm_out["text"])
+            return result.get("claims", [])
+        except Exception as e:
+            self._log(f"Slide {slide.get('slide_number')} audit failed: {e}")
+            # Return unverified claims for this slide so we don't lose them
+            return [
+                {
+                    "claim_text": b,
+                    "status":     "UNVERIFIED",
+                    "confidence": 0.5,
+                    "notes":      "Could not verify — review manually",
+                }
+                for b in bullets
+            ]
+
+    def run(self, pitch: dict, okf_context: str) -> "AgentResult":
+        self._log("Starting slide-by-slide audit...")
+
+        slides      = pitch.get("slides", [])
+        all_claims  = []
+        model_used  = "unknown"
+
+        for slide in slides:
+            self._log(f"Auditing slide {slide.get('slide_number', '?')}: {slide.get('title', '')}")
+            claims = self._audit_one_slide(slide, okf_context)
+            all_claims.extend(claims)
+
+        # Aggregate statistics
+        total     = len(all_claims)
+        verified  = sum(1 for c in all_claims if c.get("status") == "VERIFIED")
+        flagged   = sum(1 for c in all_claims if c.get("status") in ("INACCURATE", "UNVERIFIED"))
+
+        if total == 0:
+            summary = "PASS_WITH_NOTES"
+        elif flagged == 0:
+            summary = "PASS"
+        elif flagged / total < 0.3:
+            summary = "PASS_WITH_NOTES"
+        else:
+            summary = "FAIL"
+
+        recommendations = []
+        if any(c.get("status") == "INACCURATE" for c in all_claims):
+            recommendations.append("Review INACCURATE claims — they contradict source policy documents.")
+        if any(c.get("status") == "UNVERIFIED" for c in all_claims):
+            recommendations.append("UNVERIFIED claims could not be confirmed in OKF sources — validate before presenting.")
+        if not recommendations:
+            recommendations.append("All audited claims align with source policy documents.")
+
+        audit = {
+            "audit_summary":   summary,
+            "total_claims":    total,
+            "verified_claims": verified,
+            "flagged_claims":  flagged,
+            "claims":          all_claims,
+            "recommendations": recommendations,
+            "_model_used":     model_used,
         }
 
-    def run(self, pitch: dict, okf_context: str) -> AgentResult:
-        self._log("Auditing pitch content...")
-        result = super().run(pitch=pitch, okf_context=okf_context)
-        if result.success:
-            result.data["_model_used"] = result.model_used
-        return result
+        self._log(f"Audit complete: {total} claims, {verified} verified, {flagged} flagged. Summary: {summary}")
+        return AgentResult(
+            agent_name=self.name,
+            data=audit,
+            model_used=model_used,
+        )
