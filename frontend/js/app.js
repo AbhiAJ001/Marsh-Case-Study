@@ -47,7 +47,51 @@ function getSelectedPolicies() {
     return Array.from(checkboxes).map(cb => cb.value);
 }
 
-// ─── Loading state ───
+// ─── Step progress tracker ───────────────────────────────────────────────────
+
+function showProgressTracker() {
+    $('progressTracker').classList.remove('hidden');
+    // Reset all steps to idle
+    ['research', 'retrieve', 'pitch'].forEach(resetStep);
+}
+
+function hideProgressTracker() {
+    $('progressTracker').classList.add('hidden');
+}
+
+function setStepRunning(stepId, detail) {
+    const step = $('step-' + stepId);
+    step.classList.remove('done', 'idle');
+    step.classList.add('running');
+    step.querySelector('.step-spinner').classList.remove('hidden');
+    step.querySelector('.step-tick').classList.add('hidden');
+    step.querySelector('.step-num').classList.add('hidden');
+    if (detail) $('step-' + stepId + '-detail').textContent = detail;
+    // also update header status
+    $('statusDot').classList.add('busy');
+    $('statusText').textContent = 'Processing';
+}
+
+function setStepDone(stepId, detail) {
+    const step = $('step-' + stepId);
+    step.classList.remove('running', 'idle');
+    step.classList.add('done');
+    step.querySelector('.step-spinner').classList.add('hidden');
+    step.querySelector('.step-tick').classList.remove('hidden');
+    step.querySelector('.step-num').classList.add('hidden');
+    if (detail) $('step-' + stepId + '-detail').textContent = detail;
+}
+
+function resetStep(stepId) {
+    const step = $('step-' + stepId);
+    step.classList.remove('running', 'done');
+    step.classList.add('idle');
+    step.querySelector('.step-spinner').classList.add('hidden');
+    step.querySelector('.step-tick').classList.add('hidden');
+    step.querySelector('.step-num').classList.remove('hidden');
+}
+
+// ─── Loading state (for PPTX download / audit only) ──────────────────────────
 function showLoading(message) {
     $('loadingText').textContent = message;
     $('loadingOverlay').classList.remove('hidden');
@@ -61,7 +105,7 @@ function hideLoading() {
     $('statusText').textContent = 'Ready';
 }
 
-// ─── Reset all results sections before a new search ───
+// ─── Reset all results sections before a new search ──────────────────────────
 function resetResults() {
     currentProfile = null;
     currentPitch = null;
@@ -74,10 +118,10 @@ function resetResults() {
     $('auditClaims').innerHTML = '';
 }
 
-// ─── Main generate flow ───
+// ─── Main generate flow ───────────────────────────────────────────────────────
 async function handleGenerate() {
     const companyName = $('companyName').value.trim();
-    const policies = getSelectedPolicies();
+    const policies    = getSelectedPolicies();
 
     if (!companyName) {
         showError('inputSection', 'Please enter a company name.');
@@ -89,45 +133,54 @@ async function handleGenerate() {
     }
 
     clearErrors();
-    resetResults();  // wipe previous company data before every new request
+    resetResults();
+    showProgressTracker();
 
-    // Step 1: Generate company profile
-    showLoading('Researching ' + companyName + '...');
+    // Disable generate button while running
+    $('generateBtn').disabled = true;
+
+    // ── Step 1: Research company ─────────────────────────────────────────────
+    setStepRunning('research', `Researching "${companyName}" — industry, risks, size...`);
     try {
         const profileRes = await fetch('/api/profile', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ company_name: companyName }),
         });
-
         const profileData = await profileRes.json();
         if (!profileRes.ok) throw new Error(profileData.error || 'Profile generation failed');
 
         currentProfile = profileData;
+        setStepDone('research', `Found: ${profileData.industry || 'Unknown industry'} · ${profileData.estimated_size || ''}`);
         renderProfile(currentProfile);
         $('profileSection').classList.remove('hidden');
+        $('profileSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (err) {
-        hideLoading();
+        hideProgressTracker();
+        $('generateBtn').disabled = false;
         showError('inputSection', 'Failed to research company: ' + err.message);
+        $('statusDot').classList.remove('busy');
+        $('statusText').textContent = 'Ready';
         return;
     }
 
-    // Step 2: Generate pitch
-    showLoading('Generating pitch for ' + companyName + '...');
+    // ── Step 2: Retrieve policy knowledge (runs server-side, show as "working") ──
+    setStepRunning('retrieve', `Loading OKF bundles for ${policies.length} selected ${policies.length === 1 ? 'policy' : 'policies'}...`);
+    // Small delay to let the UI repaint before the long pitch call
+    await new Promise(r => setTimeout(r, 300));
+    setStepDone('retrieve', `${policies.length} policy knowledge bundle${policies.length > 1 ? 's' : ''} loaded`);
+
+    // ── Step 3: Generate pitch slides (all 5 in parallel on server) ──────────
+    setStepRunning('pitch', '5 specialist agents writing slides in parallel...');
     try {
         const pitchRes = await fetch('/api/pitch', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                profile: currentProfile,
-                policies: policies,
-            }),
+            body: JSON.stringify({ profile: currentProfile, policies }),
         });
-
         const pitchData = await pitchRes.json();
         if (!pitchRes.ok) throw new Error(pitchData.error || 'Pitch generation failed');
 
-        // Check if backend returned an error pitch (model failed to parse JSON)
         if (pitchData.error === true) {
             throw new Error(
                 'The AI model could not generate a structured pitch. ' +
@@ -137,19 +190,24 @@ async function handleGenerate() {
         }
 
         currentPitch = pitchData;
+        const slideCount = (pitchData.slides || []).length;
+        setStepDone('pitch', `${slideCount} slides generated · ready to download`);
         renderPitch(currentPitch);
         $('pitchSection').classList.remove('hidden');
     } catch (err) {
-        hideLoading();
+        hideProgressTracker();
+        $('generateBtn').disabled = false;
         showError('profileSection', 'Failed to generate pitch: ' + err.message);
+        $('statusDot').classList.remove('busy');
+        $('statusText').textContent = 'Ready';
         return;
     }
 
-
-    hideLoading();
-
-    // Scroll to results
-    $('profileSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // All done
+    $('generateBtn').disabled = false;
+    $('statusDot').classList.remove('busy');
+    $('statusText').textContent = 'Ready';
+    $('pitchSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // ─── Render company profile ───
