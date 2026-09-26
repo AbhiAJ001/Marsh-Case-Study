@@ -49,6 +49,7 @@ class FactCheckerAgent(BaseAgent):
     name        = "FactCheckerAgent"
     temperature = 0.1
     max_tokens  = 600     # Small — just claim objects for one slide
+    task_type   = "audit" # → Mistral first (best strict rule-following)
 
     def build_prompt(self, **inputs) -> str:
         # Not used — we use custom run() below

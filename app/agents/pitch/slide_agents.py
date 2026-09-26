@@ -47,6 +47,7 @@ class ExecutiveSummaryAgent(BaseAgent):
     name        = "ExecutiveSummaryAgent"
     temperature = 0.3
     max_tokens  = 600
+    task_type   = "pitch"   # → OpenRouter/NVIDIA first (best creative JSON)
 
     def build_prompt(self, company_profile: dict, policy_contexts: list, **_) -> str:
         company_name  = company_profile.get("company_name", "the company")

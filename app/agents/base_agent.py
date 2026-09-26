@@ -49,17 +49,25 @@ class BaseAgent(ABC):
     # ── LLM parameters (override in subclass) ──────────────────────────────
     temperature: float = 0.3
     max_tokens:  int   = 1500
+    task_type:   str   = "general"   # "research" | "pitch" | "audit" | "general"
 
     def _log(self, msg: str):
         print(f"[{self.name}] {msg}")
 
-    def _call_llm(self, prompt: str) -> dict:
+    def _call_llm(self, prompt: str, task_type: str = None) -> dict:
         """
         Call the model router and return {"text": ..., "model_used": ...}.
+        Uses self.task_type unless overridden by the task_type argument.
         Raises RuntimeError if all providers fail.
         """
-        self._log("Calling LLM...")
-        result = generate(prompt, temperature=self.temperature, max_tokens=self.max_tokens)
+        effective_task = task_type or self.task_type
+        self._log(f"Calling LLM (task={effective_task})...")
+        result = generate(
+            prompt,
+            temperature=self.temperature,
+            max_tokens=self.max_tokens,
+            task_type=effective_task,
+        )
         self._log(f"Response received from {result['model_used']}")
         return result
 
@@ -79,7 +87,7 @@ class BaseAgent(ABC):
         """
         Default synchronous run loop:
           1. Build prompt
-          2. Call LLM
+          2. Call LLM (with agent's task_type for smart routing)
           3. Parse output
           4. Return AgentResult
 

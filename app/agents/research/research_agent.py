@@ -51,6 +51,7 @@ class ResearchAgent(BaseAgent):
     name        = "ResearchAgent"
     temperature = 0.3
     max_tokens  = 1200
+    task_type   = "research"   # → Gemini first (best world knowledge)
 
     def build_prompt(self, company_name: str, **_) -> str:
         return RESEARCH_PROMPT.format(company_name=company_name)
@@ -76,6 +77,7 @@ class ResearchAgent(BaseAgent):
 
     def run(self, company_name: str) -> AgentResult:
         self._log(f"Researching: {company_name}")
+        # task_type="research" → router tries Gemini first (best world knowledge)
         result = super().run(company_name=company_name)
         if result.success:
             result.data["_model_used"] = result.model_used
