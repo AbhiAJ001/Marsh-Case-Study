@@ -86,9 +86,13 @@ def api_profile():
     except Exception as e:
         err = str(e)
         if "rate limit" in err.lower() or "quota" in err.lower() or "429" in err:
-            msg = "Gemini API rate limit reached. The free tier allows 20 requests/day. Please wait a few minutes and try again."
+            msg = "API rate limit reached. Please wait a few seconds and try again."
+        elif "could not parse json" in err.lower() or "non-json" in err.lower():
+            # Log the raw error to the server console, but give the user a clean message
+            print(f"[API Error] {err}")
+            msg = "The AI model failed to produce a valid data format (possible response truncation). Please try again."
         else:
-            msg = f"Failed to research company: {err}"
+            msg = f"Failed to research company: {err.split('Error:')[-1].strip()}"
         return jsonify({"error": msg}), 500
 
 
@@ -111,7 +115,13 @@ def api_pitch():
         pitch = orchestrator.generate_pitch(profile, policies)
         return jsonify(pitch)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        err = str(e)
+        if "could not parse json" in err.lower() or "non-json" in err.lower():
+            print(f"[API Error] {err}")
+            msg = "The AI model failed to produce a valid structured pitch (possible response truncation). Please try again."
+        else:
+            msg = err
+        return jsonify({"error": msg}), 500
 
 
 @app.route("/api/audit", methods=["POST"])
@@ -133,7 +143,13 @@ def api_audit():
         audit = orchestrator.audit_pitch(pitch, policies)
         return jsonify(audit)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        err = str(e)
+        if "could not parse json" in err.lower() or "non-json" in err.lower():
+            print(f"[API Error] {err}")
+            msg = "The AI model failed to produce valid audit data. Please try again."
+        else:
+            msg = err
+        return jsonify({"error": msg}), 500
 
 
 @app.route("/api/download-pptx", methods=["POST"])

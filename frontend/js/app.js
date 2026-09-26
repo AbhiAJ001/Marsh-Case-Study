@@ -158,7 +158,7 @@ async function handleGenerate() {
     } catch (err) {
         hideProgressTracker();
         $('generateBtn').disabled = false;
-        showError('inputSection', 'Failed to research company: ' + err.message);
+        showError('inputSection', err.message);
         $('statusDot').classList.remove('busy');
         $('statusText').textContent = 'Ready';
         return;
@@ -197,7 +197,7 @@ async function handleGenerate() {
     } catch (err) {
         hideProgressTracker();
         $('generateBtn').disabled = false;
-        showError('profileSection', 'Failed to generate pitch: ' + err.message);
+        showError('profileSection', err.message);
         $('statusDot').classList.remove('busy');
         $('statusText').textContent = 'Ready';
         return;
@@ -374,7 +374,7 @@ async function handleAudit() {
         $('auditSection').classList.remove('hidden');
         $('auditSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (err) {
-        showError('pitchSection', 'Audit failed: ' + err.message);
+        showError('pitchSection', err.message);
     }
 
     hideLoading();
