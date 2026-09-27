@@ -41,13 +41,15 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 load_dotenv(PROJECT_ROOT / ".env")
 
 # ── Load all API keys ─────────────────────────────────────────────────────────
-GOOGLE_API_KEY      = os.getenv("GOOGLE_API_KEY", "")
-GROQ_API_KEY        = os.getenv("GROQ_API_KEY", "")
-MISTRAL_API_KEY     = os.getenv("MISTRAL_API_KEY", "")
-MISTRAL_API_KEY_2   = os.getenv("MISTRAL_API_KEY_2", "")
-OPENROUTER_API_KEY  = os.getenv("OPENROUTER_API_KEY", "")
-OPENROUTER_API_KEY_2= os.getenv("OPENROUTER_API_KEY_2", "")
-NVIDIA_API_KEY      = os.getenv("NVIDIA_API_KEY", "")
+GOOGLE_API_KEY       = os.getenv("GOOGLE_API_KEY", "")
+GOOGLE_API_KEY2      = os.getenv("GOOGLE_API_KEY2", "")       # second Gemini key
+GROQ_API_KEY         = os.getenv("GROQ_API_KEY", "")
+GROQ_API_KEY2        = os.getenv("GROQ_API_KEY2", "")          # second Groq key
+MISTRAL_API_KEY      = os.getenv("MISTRAL_API_KEY", "")
+MISTRAL_API_KEY_2    = os.getenv("MISTRAL_API_KEY_2", "")
+OPENROUTER_API_KEY   = os.getenv("OPENROUTER_API_KEY", "")
+OPENROUTER_API_KEY_2 = os.getenv("OPENROUTER_API_KEY_2", "")
+NVIDIA_API_KEY       = os.getenv("NVIDIA_API_KEY", "")
 
 # ── Token budget constants ────────────────────────────────────────────────────
 GROQ_MAX_OUTPUT_TOKENS   = 1500
@@ -84,6 +86,23 @@ def _call_gemini(prompt: str, temperature: float, max_tokens: int) -> str:
     if not GOOGLE_API_KEY:
         raise RuntimeError("GOOGLE_API_KEY not set")
     genai.configure(api_key=GOOGLE_API_KEY)
+    model = genai.GenerativeModel("gemini-1.5-flash")
+    response = model.generate_content(
+        prompt,
+        generation_config=genai.GenerationConfig(
+            temperature=temperature,
+            max_output_tokens=max_tokens,
+        ),
+    )
+    return response.text
+
+
+def _call_gemini2(prompt: str, temperature: float, max_tokens: int) -> str:
+    """Second Gemini key — used as direct fallback if key 1 is exhausted."""
+    import google.generativeai as genai
+    if not GOOGLE_API_KEY2:
+        raise RuntimeError("GOOGLE_API_KEY2 not set")
+    genai.configure(api_key=GOOGLE_API_KEY2)
     model = genai.GenerativeModel("gemini-1.5-flash")
     response = model.generate_content(
         prompt,
@@ -162,12 +181,15 @@ def _call_mistral(prompt: str, temperature: float, max_tokens: int,
     )
 
 
-def _call_groq(prompt: str, temperature: float, model: str) -> str:
+def _call_groq(prompt: str, temperature: float, model: str,
+               api_key: str = None) -> str:
+    """Call Groq — optionally with a specific key (defaults to key 1)."""
     from groq import Groq
-    if not GROQ_API_KEY:
+    key = api_key or GROQ_API_KEY
+    if not key:
         raise RuntimeError("GROQ_API_KEY not set")
     safe_prompt = _truncate(prompt, GROQ_MAX_PROMPT_CHARS, "Groq")
-    client = Groq(api_key=GROQ_API_KEY)
+    client = Groq(api_key=key)
     completion = client.chat.completions.create(
         model=model,
         messages=[{"role": "user", "content": safe_prompt}],
@@ -191,57 +213,65 @@ def _get_providers(prompt: str, temperature: float, max_tokens: int,
       "general"  → full chain, Gemini first
     """
 
-    # All available slots
+    # All available slots — 11 total (9 keys across 5 providers)
     slots = {
-        "gemini":          ("gemini-1.5-flash",
+        "gemini":           ("gemini-1.5-flash [key1]",
                             lambda: _call_gemini(prompt, temperature, max_tokens)),
-        "openrouter-llama":("openrouter-llama-3.3-70b",
+        "gemini2":          ("gemini-1.5-flash [key2]",
+                            lambda: _call_gemini2(prompt, temperature, max_tokens)),
+        "openrouter-llama": ("openrouter-llama-3.3-70b",
                             lambda: _call_openrouter(prompt, temperature, max_tokens,
                                 OPENROUTER_API_KEY, "meta-llama/llama-3.3-70b-instruct")),
-        "nvidia-llama":    ("nvidia-llama-3.1-70b",
+        "nvidia-llama":     ("nvidia-llama-3.1-70b",
                             lambda: _call_nvidia(prompt, temperature, max_tokens)),
-        "mistral-large":   ("mistral-large",
+        "mistral-large":    ("mistral-large",
                             lambda: _call_mistral(prompt, temperature, max_tokens,
                                 MISTRAL_API_KEY, "mistral-large-latest")),
-        "groq-120b":       ("groq-gpt-oss-120b",
-                            lambda: _call_groq(prompt, temperature, "openai/gpt-oss-120b")),
-        "openrouter-gemini":("openrouter-gemini-2.0",
-                             lambda: _call_openrouter(prompt, temperature, max_tokens,
+        "groq-llama-k1":    ("groq-llama3.3-70b [key1]",
+                            lambda: _call_groq(prompt, temperature,
+                                "llama-3.3-70b-versatile", GROQ_API_KEY)),
+        "groq-llama-k2":    ("groq-llama3.3-70b [key2]",
+                            lambda: _call_groq(prompt, temperature,
+                                "llama-3.3-70b-versatile", GROQ_API_KEY2)),
+        "openrouter-gemini":("openrouter-gemini-2.0-flash",
+                            lambda: _call_openrouter(prompt, temperature, max_tokens,
                                 OPENROUTER_API_KEY_2, "google/gemini-2.0-flash-exp:free")),
-        "mistral-medium":  ("mistral-medium",
+        "mistral-medium":   ("mistral-medium",
                             lambda: _call_mistral(prompt, temperature, max_tokens,
                                 MISTRAL_API_KEY_2, "mistral-medium-latest")),
-        "groq-qwen":       ("groq-qwen3.8-27b",
-                            lambda: _call_groq(prompt, temperature, "qwen/qwen3.8-27b")),
-        "groq-20b":        ("groq-gpt-oss-20b",
-                            lambda: _call_groq(prompt, temperature, "openai/gpt-oss-20b")),
+        "groq-8b-k1":       ("groq-llama3-8b [key1]",
+                            lambda: _call_groq(prompt, temperature,
+                                "llama3-8b-8192", GROQ_API_KEY)),
+        "groq-8b-k2":       ("groq-llama3-8b [key2]",
+                            lambda: _call_groq(prompt, temperature,
+                                "llama3-8b-8192", GROQ_API_KEY2)),
     }
 
-    # Task-specific orderings — put the best model for each task first
+    # Task-specific orderings — best model for each task first
     order_map = {
-        # Research: needs strong world knowledge → Gemini best, NVIDIA Llama second
+        # Research: needs strong world knowledge → Gemini both keys first
         "research": [
-            "gemini", "openrouter-llama", "nvidia-llama",
-            "mistral-large", "groq-120b", "openrouter-gemini",
-            "mistral-medium", "groq-qwen", "groq-20b",
+            "gemini", "gemini2", "openrouter-llama", "nvidia-llama",
+            "mistral-large", "groq-llama-k1", "groq-llama-k2",
+            "openrouter-gemini", "mistral-medium", "groq-8b-k1", "groq-8b-k2",
         ],
-        # Pitch: needs creative, long structured JSON → NVIDIA + OpenRouter shine
+        # Pitch: needs creative long structured JSON → OpenRouter + NVIDIA shine
         "pitch": [
-            "openrouter-llama", "nvidia-llama", "gemini",
-            "mistral-large", "groq-120b", "openrouter-gemini",
-            "mistral-medium", "groq-qwen", "groq-20b",
+            "openrouter-llama", "nvidia-llama", "gemini", "gemini2",
+            "mistral-large", "groq-llama-k1", "groq-llama-k2",
+            "openrouter-gemini", "mistral-medium", "groq-8b-k1", "groq-8b-k2",
         ],
-        # Audit: needs strict rule-following → Mistral is best at instructions
+        # Audit: needs strict rule-following → Mistral best, then both Gemini keys
         "audit": [
             "mistral-large", "nvidia-llama", "openrouter-llama",
-            "gemini", "groq-120b", "mistral-medium",
-            "openrouter-gemini", "groq-qwen", "groq-20b",
+            "gemini", "gemini2", "groq-llama-k1", "groq-llama-k2",
+            "mistral-medium", "openrouter-gemini", "groq-8b-k1", "groq-8b-k2",
         ],
-        # General: Gemini first (default)
+        # General: Gemini first (default fallback order)
         "general": [
-            "gemini", "openrouter-llama", "nvidia-llama",
-            "mistral-large", "groq-120b", "openrouter-gemini",
-            "mistral-medium", "groq-qwen", "groq-20b",
+            "gemini", "gemini2", "openrouter-llama", "nvidia-llama",
+            "mistral-large", "groq-llama-k1", "groq-llama-k2",
+            "openrouter-gemini", "mistral-medium", "groq-8b-k1", "groq-8b-k2",
         ],
     }
 
