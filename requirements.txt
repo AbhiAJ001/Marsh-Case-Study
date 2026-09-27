@@ -1,5 +1,4 @@
 # Marsh Case Study — Python Dependencies
-# Architecture v2: Flask + OKF + LangChain fallback
 
 # Backend server
 flask
@@ -12,11 +11,6 @@ google-generativeai
 # Knowledge layer — OKF support
 pyyaml
 
-# RAG fallback — LangChain + FAISS
-langchain
-langchain-community
-langchain-google-genai
-faiss-cpu
 
 # PDF processing
 PyPDF2
