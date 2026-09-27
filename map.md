@@ -15,7 +15,7 @@ Marsh-Case-Study/
 ├── mind.md                            # Permanent project memory + design rules
 ├── log.md                             # Work tracker + decision log
 ├── map.md                             # THIS FILE — system blueprint (v2)
-├── architecture.html                  # Interactive system architecture diagram
+├── START.bat                  # Interactive system architecture diagram
 ├── requirements.txt                   # Python dependencies
 ├── .env.example                       # API key template (no secrets committed)
 ├── .gitignore                         # Ignore venv, .env, __pycache__, etc.
@@ -61,10 +61,6 @@ Marsh-Case-Study/
 │   │   ├── bundle_builder.py          # PDF → OKF concept files
 │   │   ├── bundle_reader.py           # Parse OKF bundle, traverse concepts
 │   │   └── okf_retriever.py           # OKF-aware retrieval with graph links
-│   ├── rag/                           # LangChain fallback (SECONDARY)
-│   │   ├── __init__.py
-│   │   ├── langchain_fallback.py      # Embed OKF docs → FAISS similarity search
-│   │   └── vector_store.py            # FAISS index build/load/query
 │   └── utils/
 │       ├── __init__.py
 │       ├── prompts.py                 # All LLM prompts centralized
@@ -153,9 +149,9 @@ USER (Browser)
 │     → Coverages, Benefits, Pricing   │
 │     with cross-linked Exclusions     │
 │                                      │
-│  3. LangChain Fallback (if needed)   │
-│     FAISS similarity search on       │
-│     OKF concept embeddings           │
+│  3. Multi-Agent Routing              │
+│     5 Agents write slides in parallel│
+│     via 9-key fallback chain         │
 └──────────┬──────────────────────────┘
            │
            ▼
