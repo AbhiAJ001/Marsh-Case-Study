@@ -621,7 +621,102 @@ body {
     color: var(--text-secondary);
 }
 
-/* ─── Loading ─── */
+/* ─── Reviewer Controls (on flagged claims) ─── */
+.reviewer-controls {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    margin-top: var(--space-md);
+    padding-top: var(--space-sm);
+    border-top: 1px solid var(--border);
+}
+
+.reviewer-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-right: 4px;
+}
+
+.reviewer-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    padding: 5px 14px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    transition: border-color 0.15s, background 0.15s;
+    user-select: none;
+}
+
+.reviewer-option input[type="radio"] {
+    display: none;   /* hide native radio — we use the indicator span */
+}
+
+.reviewer-radio-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 2px solid currentColor;
+    flex-shrink: 0;
+    transition: background 0.15s;
+}
+
+/* Hover state */
+.reviewer-option:hover {
+    border-color: var(--accent-muted);
+    background: var(--bg-hover);
+}
+
+/* Selected states per option type */
+.reviewer-option:has(input:checked) {
+    border-color: var(--accent);
+    background: var(--bg-hover);
+    font-weight: 600;
+}
+
+.reviewer-option:has(input[value="verified"]:checked) {
+    border-color: var(--success);
+    background: var(--success-light);
+    color: var(--success);
+}
+.reviewer-option:has(input[value="verified"]:checked) .reviewer-radio-indicator {
+    background: var(--success);
+    border-color: var(--success);
+}
+
+.reviewer-option:has(input[value="rejected"]:checked) {
+    border-color: var(--error);
+    background: var(--error-light);
+    color: var(--error);
+}
+.reviewer-option:has(input[value="rejected"]:checked) .reviewer-radio-indicator {
+    background: var(--error);
+    border-color: var(--error);
+}
+
+.reviewer-option:has(input[value="pending"]:checked) {
+    border-color: var(--accent-muted);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+}
+
+/* Card-level highlight after decision */
+.audit-claim.reviewer-verified {
+    border-left: 3px solid var(--success);
+}
+.audit-claim.reviewer-rejected {
+    border-left: 3px solid var(--error);
+}
+
+
 .loading-overlay {
     position: fixed;
     inset: 0;

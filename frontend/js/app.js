@@ -406,7 +406,7 @@ function normaliseAudit(raw) {
 
 // ─── Render audit results ───
 function renderAudit(audit) {
-    // Summary
+    // Summary stats
     const summaryStatus = (audit.audit_summary || '').toUpperCase();
     let statusClass = 'notes';
     if (summaryStatus.includes('PASS') && !summaryStatus.includes('NOTE')) statusClass = 'pass';
@@ -432,14 +432,36 @@ function renderAudit(audit) {
         </div>
     `;
 
-    // Individual claims
+    // Individual claims — flagged ones get reviewer controls
     const claims = audit.claims || [];
-    $('auditClaims').innerHTML = claims.map(claim => {
-        const statusLower = (claim.status || '').toLowerCase();
-        const confidence = claim.confidence != null ? Math.round(claim.confidence * 100) + '%' : '';
+    $('auditClaims').innerHTML = claims.map((claim, idx) => {
+        const statusLower   = (claim.status || '').toLowerCase();
+        const isFlagged     = statusLower === 'flagged' || statusLower === 'unverified';
+        const confidence    = claim.confidence != null ? Math.round(claim.confidence * 100) + '%' : '';
+        const claimId       = `claim_${idx}`;
+
+        const reviewerControls = isFlagged ? `
+            <div class="reviewer-controls">
+                <span class="reviewer-label">Your Decision:</span>
+                <label class="reviewer-option">
+                    <input type="radio" name="${claimId}" value="verified" onchange="updateReviewerDecision(${idx}, 'verified')">
+                    <span class="reviewer-radio-indicator verified-indicator"></span>
+                    Verified
+                </label>
+                <label class="reviewer-option">
+                    <input type="radio" name="${claimId}" value="rejected" onchange="updateReviewerDecision(${idx}, 'rejected')">
+                    <span class="reviewer-radio-indicator rejected-indicator"></span>
+                    Rejected
+                </label>
+                <label class="reviewer-option">
+                    <input type="radio" name="${claimId}" value="pending" checked onchange="updateReviewerDecision(${idx}, 'pending')">
+                    <span class="reviewer-radio-indicator pending-indicator"></span>
+                    Pending
+                </label>
+            </div>` : '';
 
         return `
-            <div class="audit-claim">
+            <div class="audit-claim" id="claim-card-${idx}" data-idx="${idx}" data-status="${statusLower}">
                 <div class="claim-header">
                     <span class="claim-status ${statusLower}">${claim.status}</span>
                     ${confidence ? `<span class="claim-confidence">${confidence} confidence</span>` : ''}
@@ -447,11 +469,12 @@ function renderAudit(audit) {
                 <p class="claim-text">${claim.claim_text}</p>
                 ${claim.source_concept ? `<p class="claim-source">Source: ${claim.source_concept}</p>` : ''}
                 ${claim.notes ? `<p class="claim-source">${claim.notes}</p>` : ''}
+                ${reviewerControls}
             </div>
         `;
     }).join('');
 
-    // Recommendations
+    // Recommendations block
     if (audit.recommendations && audit.recommendations.length > 0) {
         $('auditClaims').innerHTML += `
             <div class="slide-card" style="margin-top: var(--space-md); border-left: 3px solid var(--warning)">
@@ -462,7 +485,118 @@ function renderAudit(audit) {
             </div>
         `;
     }
+
+    // Show the Download Audit PDF button
+    $('auditDownloadRow').classList.remove('hidden');
 }
+
+// ─── Track reviewer decisions per claim ───
+const _reviewerDecisions = {};   // { claimIndex: 'verified' | 'rejected' | 'pending' }
+
+function updateReviewerDecision(idx, decision) {
+    _reviewerDecisions[idx] = decision;
+    const card = $(`claim-card-${idx}`);
+    if (!card) return;
+    card.classList.remove('reviewer-verified', 'reviewer-rejected', 'reviewer-pending');
+    card.classList.add(`reviewer-${decision}`);
+}
+
+// ─── Download Audit as PDF ───
+async function handleAuditPDF() {
+    const claims    = document.querySelectorAll('.audit-claim');
+    const summaryEl = $('auditSummary');
+    const company   = currentPitch?.target_company || 'Company';
+    const dateStr   = new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+
+    // Build print-ready HTML and open in new window for system print-to-PDF
+    const claimsHTML = Array.from(claims).map((card, idx) => {
+        const statusEl   = card.querySelector('.claim-status');
+        const textEl     = card.querySelector('.claim-text');
+        const sourceEl   = card.querySelector('.claim-source');
+        const notesEl    = card.querySelectorAll('.claim-source')[1];
+        const confEl     = card.querySelector('.claim-confidence');
+        const isFlagged  = card.dataset.status === 'flagged' || card.dataset.status === 'unverified';
+        const decision   = _reviewerDecisions[card.dataset.idx] || 'pending';
+
+        const decisionBadge = isFlagged ? `
+            <span style="
+                display:inline-block; padding:2px 10px; border-radius:3px; font-size:10px;
+                font-weight:600; letter-spacing:.06em; text-transform:uppercase;
+                background:${decision==='verified'?'#e8f4ea':decision==='rejected'?'#fce8e8':'#f0f4ff'};
+                color:${decision==='verified'?'#2d7d46':decision==='rejected'?'#c0392b':'#1A78B4'};
+                border:1px solid ${decision==='verified'?'#2d7d46':decision==='rejected'?'#c0392b':'#1A78B4'};
+                margin-left:8px;">
+                ▸ Reviewer: ${decision.charAt(0).toUpperCase()+decision.slice(1)}
+            </span>` : '';
+
+        return `
+            <div style="padding:14px 0; border-bottom:1px solid #eee;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                    <span style="
+                        font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+                        padding:2px 8px;border-radius:3px;
+                        background:${statusEl?.className.includes('verified')?'#e8f4ea':'#fce8e8'};
+                        color:${statusEl?.className.includes('verified')?'#2d7d46':'#c0392b'}">
+                        ${statusEl?.textContent || ''}
+                    </span>
+                    ${confEl ? `<span style="font-size:11px;color:#9AB0C8">${confEl.textContent}</span>` : ''}
+                    ${decisionBadge}
+                </div>
+                <p style="margin:0 0 4px;font-size:13px;color:#0F1117;line-height:1.5">${textEl?.textContent || ''}</p>
+                ${sourceEl ? `<p style="margin:0;font-size:11px;color:#9AB0C8">${sourceEl.textContent}</p>` : ''}
+            </div>`;
+    }).join('');
+
+    const auditStatusEl = summaryEl.querySelector('.audit-status');
+    const statsEls = summaryEl.querySelectorAll('.audit-stat');
+    const statsHTML = Array.from(statsEls).map(s => `
+        <div style="text-align:center;padding:0 24px;border-right:1px solid #eee;">
+            <div style="font-size:28px;font-weight:600;color:#1A78B4;font-family:Georgia,serif">${s.querySelector('.audit-stat-number')?.textContent}</div>
+            <div style="font-size:11px;color:#9AB0C8;letter-spacing:.06em;text-transform:uppercase">${s.querySelector('.audit-stat-label')?.textContent}</div>
+        </div>`).join('');
+
+    const win = window.open('', '_blank');
+    win.document.write(`<!DOCTYPE html><html><head>
+        <title>Marsh Audit Report — ${company}</title>
+        <style>
+            *{margin:0;padding:0;box-sizing:border-box}
+            body{font-family:Inter,-apple-system,sans-serif;color:#0F1117;padding:40px;max-width:800px;margin:0 auto}
+            @media print{body{padding:20px}button{display:none!important}}
+        </style>
+    </head><body>
+        <div style="border-bottom:3px solid #1A78B4;padding-bottom:20px;margin-bottom:24px">
+            <div style="display:flex;justify-content:space-between;align-items:flex-end">
+                <div>
+                    <div style="font-family:Georgia,serif;font-size:22px;color:#1A78B4;font-weight:400">Marsh</div>
+                    <div style="font-size:18px;font-weight:600;color:#0F1117;margin-top:2px">Pitch Audit Report</div>
+                    <div style="font-size:13px;color:#9AB0C8;margin-top:4px">${company} · ${dateStr}</div>
+                </div>
+                <span style="
+                    padding:6px 16px;border-radius:3px;font-size:12px;font-weight:700;letter-spacing:.08em;
+                    background:${auditStatusEl?.className.includes('pass')?'#e8f4ea':auditStatusEl?.className.includes('fail')?'#fce8e8':'#fff8e8'};
+                    color:${auditStatusEl?.className.includes('pass')?'#2d7d46':auditStatusEl?.className.includes('fail')?'#c0392b':'#b08800'}">
+                    ${auditStatusEl?.textContent || ''}
+                </span>
+            </div>
+        </div>
+        <div style="display:flex;margin-bottom:28px;background:#F7F8FA;border-radius:6px;padding:16px">
+            ${statsHTML}
+        </div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#9AB0C8;margin-bottom:12px">Claim-by-Claim Review</div>
+        ${claimsHTML}
+        <div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;font-size:11px;color:#9AB0C8;text-align:center">
+            Generated by Marsh AI Pitch Generator · NMIMS 2026 · Confidential
+        </div>
+        <br>
+        <div style="text-align:center"><button onclick="window.print()" style="
+            padding:10px 28px;background:#1A78B4;color:#fff;border:none;
+            border-radius:4px;font-size:14px;cursor:pointer;font-family:inherit">
+            Save as PDF (Ctrl+P)
+        </button></div>
+    </body></html>`);
+    win.document.close();
+}
+
 
 // ─── Error handling ───
 function showError(sectionId, message) {
