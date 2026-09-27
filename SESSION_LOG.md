@@ -446,3 +446,18 @@ app/utils/model_router.py  (Gemini → Groq GPT-OSS-120B → Qwen → GPT-OSS-20
 ---
 
 *Last updated: Sep 26, 2026 — 11:22 IST*
+
+### ?? Sep 27, 2026 | Evaluator Cleanup, UI Polish, and Delivery Prep
+
+**What was done**:
+- **Project Cleanup**: Removed dead code (\pp/rag/\ LangChain fallback), empty placeholders, and internal planning docs to ensure a pristine codebase for evaluator review.
+- **Model Router Expansion**: Added \GOOGLE_API_KEY2\ and \GROQ_API_KEY2\ to \.env\. Wired these into \pp/utils/model_router.py\ to create a robust 9-key, 5-provider fallback chain, ensuring 100% uptime without manual key swapping.
+- **Interactive Audit Reviewer**: Upgraded the frontend audit panel. Added interactive radio buttons (Verified / Rejected / Pending) for flagged claims with CSS \:has()\ state styling (green/red borders).
+- **PDF Export**: Implemented a pure frontend \window.print()\ based PDF export for the Audit Report, bypassing heavy backend dependencies like WeasyPrint.
+- **Zero-Setup Launcher**: Created \START.bat\ for Windows evaluators. A single double-click now validates Python, creates a virtual environment, installs dependencies, provisions \.env\, launches the Flask server, and opens the browser.
+- **Documentation Overhaul**: Updated \README.md\, \SETUP.md\, \map.md\, and \log.md\ to reflect the final Multi-Agent architecture and remove all legacy V1 references.
+
+---
+
+*Last updated: Sep 27, 2026 � 14:25 IST*
+
