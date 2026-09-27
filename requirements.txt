@@ -3,7 +3,7 @@
 
 # Backend server
 flask>=3.0
-groq>=1.7
+groq
 openai>=1.40        # OpenAI-compatible client for OpenRouter, NVIDIA NIM, Mistral
 
 # LLM — Google Gemini
