@@ -2,30 +2,30 @@
 # Architecture v2: Flask + OKF + LangChain fallback
 
 # Backend server
-flask>=3.0
+flask
 groq
-openai>=1.40        # OpenAI-compatible client for OpenRouter, NVIDIA NIM, Mistral
+openai
 
 # LLM — Google Gemini
-google-generativeai>=0.8
+google-generativeai
 
 # Knowledge layer — OKF support
-pyyaml>=6.0
+pyyaml
 
 # RAG fallback — LangChain + FAISS
-langchain>=0.3
-langchain-community>=0.3
-langchain-google-genai>=2.0
-faiss-cpu>=1.7
+langchain
+langchain-community
+langchain-google-genai
+faiss-cpu
 
 # PDF processing
-PyPDF2>=3.0
+PyPDF2
 
 # PowerPoint generation
-python-pptx>=1.0
+python-pptx
 
 # Environment management
-python-dotenv>=1.0
+python-dotenv
 
 # Web search for company research
-requests>=2.31
+requests
