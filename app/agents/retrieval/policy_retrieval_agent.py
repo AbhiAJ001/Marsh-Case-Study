@@ -11,7 +11,6 @@ Returns structured knowledge ready for the Pitch Writer Agents.
 from pathlib import Path
 from ..base_agent import BaseAgent, AgentResult
 from ...okf.okf_retriever import OKFRetriever, POLICY_MAP
-from ...rag.langchain_fallback import LangChainFallback
 
 
 class PolicyRetrievalAgent(BaseAgent):
@@ -36,7 +35,6 @@ class PolicyRetrievalAgent(BaseAgent):
 
     def build_prompt(self, **inputs) -> str:
         # Retrieval agents don't need an LLM — they use symbolic retrieval.
-        # This method is required by the abstract base but unused here.
         return ""
 
     def parse_output(self, text: str, **inputs) -> dict:
@@ -44,7 +42,7 @@ class PolicyRetrievalAgent(BaseAgent):
 
     def run(self, company_needs: list = None) -> AgentResult:
         """
-        Run OKF retrieval + optional LangChain fallback for this policy.
+        Run OKF retrieval for this policy.
 
         Args:
             company_needs: List of need strings from company profile
@@ -67,19 +65,7 @@ class PolicyRetrievalAgent(BaseAgent):
             )
             context_text = okf_context.to_llm_context()
 
-            # Supplement with LangChain fallback if OKF is thin
-            if okf_context.total_concepts < 4:
-                self._log("OKF context thin — running LangChain fallback")
-                fallback = LangChainFallback(self.project_root)
-                if fallback.load():
-                    extra = fallback.search_for_context(
-                        f"{self.policy_name} insurance coverage benefits features",
-                        k=4
-                    )
-                    if extra:
-                        context_text += "\n\n" + extra
-
-            # Cap at 2000 chars per policy to stay within Groq TPM limits
+            # Cap at 2000 chars per policy to stay within model TPM limits
             if len(context_text) > 2000:
                 context_text = context_text[:2000] + "\n[...context capped for token budget...]"
 
