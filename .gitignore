@@ -1,4 +1,4 @@
-# Environment
+# Environment — NEVER commit .env (contains API keys)
 .env
 venv/
 .venv/
@@ -13,13 +13,8 @@ __pycache__/
 dist/
 build/
 
-# FAISS index (generated, rebuild from source)
-.faiss_index/
-
-# Generated outputs (keep samples, ignore bulk)
-output/*.pptx
-output/*.json
-!output/.gitkeep
+# Generated outputs
+*.pptx
 
 # IDE
 .vscode/
